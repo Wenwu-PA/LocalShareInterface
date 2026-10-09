@@ -1,0 +1,32 @@
+services:
+  lanbridge:
+    build: .
+    ports:
+      - "${LANBRIDGE_PORT:-8765}:8765"
+    environment:
+      LANBRIDGE_CONFIG: /app/config.yaml
+      LANBRIDGE_HOST: 0.0.0.0
+      LANBRIDGE_PORT: "8765"
+      LANBRIDGE_USE_VENV: "1"
+    volumes:
+      - lanbridge-data:/app/data
+      - ./config.example.yaml:/app/config.yaml:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl,urllib.request; urllib.request.urlopen('https://127.0.0.1:8765/api/status',context=ssl._create_unverified_context(),timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  lanbridge-data:

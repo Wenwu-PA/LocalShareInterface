@@ -1,0 +1,14 @@
+**
+!Dockerfile
+!requirements.txt
+!run.py
+!VERSION
+!config.example.yaml
+!backend/
+!backend/**
+!frontend/
+!frontend/**
+!scripts/
+!scripts/**
+**/__pycache__/
+**/*.pyc

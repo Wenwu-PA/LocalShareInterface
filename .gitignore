@@ -1,0 +1,42 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+# Node and editors
+node_modules/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+# Private configuration and runtime data
+.env
+.env.*
+!.env.example
+config.yaml
+config.*.yaml
+!config.example.yaml
+data/
+uploads/
+certs/
+logs/
+*.db
+*.sqlite*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.log
+# Local verification outputs
+.verification/
+test-results/
+playwright-report/

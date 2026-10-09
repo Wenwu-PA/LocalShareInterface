@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101412"><title>LANBridge · Файлы</title><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/workspace.css"><link rel="stylesheet" href="/static/polish.css"></head>
+<body class="workspace">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="/app"><span class="brand-mark">↗</span><span>LAN<span class="brand-accent">Bridge</span></span></a>
+    <div class="side-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+    <nav class="nav-list" aria-label="Главное меню">
+      <button class="nav-item active" data-page="files"><span class="nav-icon">▤</span> Файлы <span class="nav-trailing" id="file-count"></span></button>
+      <button class="nav-item" data-page="devices"><span class="nav-icon">⌘</span> Устройства</button>
+      <button class="nav-item" data-page="monitoring"><span class="nav-icon">◷</span> Мониторинг</button>
+      <button class="nav-item" data-page="external"><span class="nav-icon">↗</span> Внешний доступ</button>
+      <button class="nav-item" data-page="history"><span class="nav-icon">☷</span> Журнал</button>
+    </nav>
+    <div class="sidebar-bottom"><div class="storage-box"><div class="storage-title"><span>Хранилище</span><span id="storage-percent">—</span></div><div class="meter"><i id="storage-meter"></i></div><div class="storage-sub" id="storage-sub">Свободное место сервера</div></div>
+      <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span> Настройки</button>
+      <div class="user-box"><div class="avatar" id="avatar">A</div><div class="user-meta"><strong id="username">admin</strong><small>Администратор</small></div><button class="icon-button" id="logout" title="Выйти">↗</button></div>
+    </div>
+  </aside>
+  <main class="main-area">
+    <header class="topbar"><button class="icon-button menu-toggle" id="menu-toggle" aria-label="Меню">☰</button><div class="breadcrumbs" id="top-title">Файлы</div><div class="top-actions"><span class="secure-pill"><i></i> В локальной сети</span><button class="icon-button" id="theme-toggle" aria-label="Сменить тему">◐</button></div></header>
+    <div class="content" id="page-root"></div>
+  </main>
+  <div class="modal-backdrop" id="modal" hidden><section class="modal-card"><button class="icon-button modal-close" id="modal-close">×</button><div id="modal-content"></div></section></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  <input id="file-input" type="file" multiple hidden><input id="folder-input" type="file" webkitdirectory multiple hidden>
+  <script src="/static/app.js" defer></script>
+</body></html>

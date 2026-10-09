@@ -1,0 +1,26 @@
+server:
+  host: 0.0.0.0
+  port: 8765
+  https: true
+  tls_certfile: "" # optional PEM certificate path; empty generates a local certificate
+  tls_keyfile: "" # optional PEM private key path
+  max_upload_bytes: 1099511627776 # 1 TiB
+  chunk_size: 8388608 # 8 MiB
+  session_days: 7
+storage:
+  root: ./data/files
+  database: ./data/lanbridge.sqlite3
+  tls_dir: ./data/tls
+  logs: ./data/logs
+security:
+  allowed_extensions: [] # empty means any extension; dangerous executable formats are still blocked
+  blocked_extensions: [exe, dll, com, bat, cmd, ps1, psm1, sh, bash, zsh, msi, msp, scr, cpl, sys, pif, jar, js, jse, mjs, vbs, vbe, wsf, wsh, hta, reg, lnk, appx, msix]
+  login_attempts: 8
+  login_window_minutes: 15
+tunnel:
+  provider: cloudflare
+  cloudflared_binary: cloudflared
+  origin_url: "" # empty derives local HTTPS origin from server.port
+monitoring:
+  history_days: 30
+  sample_seconds: 3

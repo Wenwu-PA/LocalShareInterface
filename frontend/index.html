@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101412"><title>LANBridge — локальный обмен файлами</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main class="auth-shell">
+    <div class="auth-brand"><div class="brand-mark">↗</div><span>LAN<span class="brand-accent">Bridge</span></span></div>
+    <section class="auth-card">
+      <p class="eyebrow" id="auth-eyebrow">ЛОКАЛЬНАЯ СЕТЬ · ЗАЩИЩЁННЫЙ ДОСТУП</p>
+      <h1 id="auth-title">Ваши файлы —<br>рядом.</h1>
+      <p class="muted" id="auth-description">Войдите, чтобы открыть защищённое пространство обмена.</p>
+      <form id="auth-form" class="stack">
+        <label>Имя пользователя<input name="username" autocomplete="username" required minlength="3" maxlength="64" placeholder="например, alex"></label>
+        <label>Пароль<input name="password" type="password" autocomplete="current-password" required minlength="12" placeholder="Не менее 12 символов"></label>
+        <button class="button primary" id="auth-submit" type="submit">Войти <span>→</span></button>
+        <p id="auth-error" class="form-error" role="alert"></p>
+      </form>
+      <div class="auth-foot"><span class="status-dot"></span> Соединение защищено HTTPS</div>
+    </section>
+    <p class="auth-note">Ваши данные остаются на этом устройстве.</p>
+  </main>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  <script src="/static/auth.js" defer></script>
+</body>
+</html>
