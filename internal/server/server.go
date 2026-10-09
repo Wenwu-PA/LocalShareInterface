@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 	"lanbridge/internal/config"
+	"lanbridge/internal/monitor"
 )
 
 const sessionCookie = "__Host-lanbridge_go_session"
@@ -49,10 +50,13 @@ type Server struct {
 	mu          sync.Mutex
 	subscribers map[chan event]struct{}
 	sequence    uint64
+	Monitors    *monitor.Engine
 }
 
 func New(db *sql.DB, c config.Config, log *slog.Logger) *Server {
-	return &Server{DB: db, Config: c, Log: log, started: time.Now(), authGate: make(chan struct{}, 1), subscribers: make(map[chan event]struct{})}
+	s := &Server{DB: db, Config: c, Log: log, started: time.Now(), authGate: make(chan struct{}, 1), subscribers: make(map[chan event]struct{})}
+	s.Monitors = monitor.New(db, log, s.publish)
+	return s
 }
 func randomToken() string {
 	b := make([]byte, 32)
@@ -125,6 +129,7 @@ func (s *Server) audit(ctx context.Context, id any, action, detail string) error
 
 func (s *Server) Handler(assets fs.FS) http.Handler {
 	mux := http.NewServeMux()
+	s.monitorRoutes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
@@ -132,7 +137,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 			problem(w, 503, "unhealthy", "База данных недоступна")
 			return
 		}
-		jsonResponse(w, 200, map[string]any{"status": "ok", "uptime_seconds": int(time.Since(s.started).Seconds()), "version": "0.2.0-dev.1", "stage": "foundation"})
+		jsonResponse(w, 200, map[string]any{"status": "ok", "uptime_seconds": int(time.Since(s.started).Seconds()), "version": "0.2.0-dev.1", "stage": "monitoring", "monitor_queue": s.Monitors.QueueDepth(), "dropped_samples": s.Monitors.Dropped.Load(), "last_measurement_write": s.Monitors.LastWrite.Load()})
 	})
 	mux.HandleFunc("GET /api/status", s.status)
 	mux.HandleFunc("POST /api/setup", s.setup)
@@ -187,7 +192,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 			problem(w, 403, "origin", "Источник запроса не разрешён")
 			return
 		}
-		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" && !preCSRF(r) {
+		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" && !strings.HasPrefix(r.URL.Path, "/api/heartbeat/") && !preCSRF(r) {
 			problem(w, 403, "csrf", "Обновите страницу и повторите действие")
 			return
 		}

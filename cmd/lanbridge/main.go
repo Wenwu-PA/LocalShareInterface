@@ -20,6 +20,7 @@ import (
 	_ "time/tzdata"
 
 	"lanbridge/internal/config"
+	"lanbridge/internal/monitor"
 	"lanbridge/internal/server"
 	"lanbridge/internal/store"
 	"lanbridge/web"
@@ -80,6 +81,9 @@ func run() error {
 	srv := &http.Server{Addr: net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port)), Handler: app.Handler(web.Assets()), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	if err = app.Monitors.Start(ctx); err != nil {
+		return err
+	}
 	var tasks sync.WaitGroup
 	tasks.Add(1)
 	go func() {
@@ -98,6 +102,9 @@ func run() error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if e := monitor.Compact(ctx, db, time.Now()); e != nil && ctx.Err() == nil {
+					logger.Error("monitor compaction failed", "error", e)
+				}
 				for _, query := range []string{"DELETE FROM sessions WHERE expires_at<unixepoch()", "DELETE FROM login_attempts WHERE window_start<unixepoch()-900", "DELETE FROM audit WHERE created_at<unixepoch()-31536000", "PRAGMA wal_checkpoint(PASSIVE)"} {
 					if _, e := db.ExecContext(ctx, query); e != nil && ctx.Err() == nil {
 						logger.Error("maintenance failed", "error", e)
@@ -129,6 +136,7 @@ func run() error {
 	}
 	cancel()
 	tasks.Wait()
+	app.Monitors.Close()
 	if _, e := db.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); e != nil {
 		return e
 	}
