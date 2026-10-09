@@ -1,0 +1,20 @@
+# Конфигурация Go-версии. Копируйте в config.go.yaml.
+# Пути считаются относительно файла конфигурации.
+server:
+  host: 127.0.0.1
+  port: 8766
+  cert: ""
+  key: ""
+storage:
+  data: ./runtime
+  root: ./runtime/files
+security:
+  session_hours: 168
+  login_attempts: 8
+logs:
+  level: info
+  max_mb: 5
+  backups: 3
+database:
+  backups: 3
+  backup_hours: 24
