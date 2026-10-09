@@ -45,6 +45,7 @@ playwright-report/
 *.test
 *.prof
 runtime/
-web/dist/
+!web/dist/
+web/dist/*
 !web/dist/.gitkeep
 config.go.yaml
