@@ -40,3 +40,11 @@ logs/
 .verification/
 test-results/
 playwright-report/
+# Go runtime, packages and local performance captures
+*.exe
+*.test
+*.prof
+runtime/
+web/dist/
+!web/dist/.gitkeep
+config.go.yaml
