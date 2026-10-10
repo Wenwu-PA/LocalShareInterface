@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -56,6 +57,9 @@ func Default() Config {
 
 func Load(path string) (Config, error) {
 	c := Default()
+	if err := loadEnvironment(filepath.Join(filepath.Dir(path), ".env.go")); err != nil {
+		return c, err
+	}
 	b, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return c, err
@@ -111,6 +115,39 @@ func Load(path string) (Config, error) {
 		}
 	}
 	return c, nil
+}
+func loadEnvironment(path string) error {
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 4096), 65536)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		key = strings.TrimSpace(key)
+		if !ok || !strings.HasPrefix(key, "LANBRIDGE_") {
+			return errors.New(".env.go: ожидается LANBRIDGE_NAME=value")
+		}
+		value = strings.TrimSpace(value)
+		if len(value) > 1 && ((value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'')) {
+			value = value[1 : len(value)-1]
+		}
+		if _, exists := os.LookupEnv(key); !exists {
+			if err = os.Setenv(key, value); err != nil {
+				return errors.New(".env.go: некорректное имя переменной")
+			}
+		}
+	}
+	return scanner.Err()
 }
 func (c Config) SessionDuration() time.Duration {
 	return time.Duration(c.Security.SessionHours) * time.Hour

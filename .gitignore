@@ -21,6 +21,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.go.example
 config.yaml
 config.*.yaml
 !config.example.yaml

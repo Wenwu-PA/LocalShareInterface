@@ -24,6 +24,7 @@ import (
 	"golang.org/x/crypto/argon2"
 	"lanbridge/internal/config"
 	"lanbridge/internal/monitor"
+	"lanbridge/internal/notify"
 )
 
 const sessionCookie = "__Host-lanbridge_go_session"
@@ -41,21 +42,23 @@ type event struct {
 	Data any    `json:"data"`
 }
 type Server struct {
-	DB          *sql.DB
-	Config      config.Config
-	Log         *slog.Logger
-	started     time.Time
-	authGate    chan struct{}
-	setupMu     sync.Mutex
-	mu          sync.Mutex
-	subscribers map[chan event]struct{}
-	sequence    uint64
-	Monitors    *monitor.Engine
+	DB            *sql.DB
+	Config        config.Config
+	Log           *slog.Logger
+	started       time.Time
+	authGate      chan struct{}
+	setupMu       sync.Mutex
+	mu            sync.Mutex
+	subscribers   map[chan event]struct{}
+	sequence      uint64
+	Monitors      *monitor.Engine
+	Notifications *notify.Worker
 }
 
 func New(db *sql.DB, c config.Config, log *slog.Logger) *Server {
 	s := &Server{DB: db, Config: c, Log: log, started: time.Now(), authGate: make(chan struct{}, 1), subscribers: make(map[chan event]struct{})}
 	s.Monitors = monitor.New(db, log, s.publish)
+	s.Notifications = notify.New(db, log, s.publish)
 	return s
 }
 func randomToken() string {
@@ -130,6 +133,7 @@ func (s *Server) audit(ctx context.Context, id any, action, detail string) error
 func (s *Server) Handler(assets fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	s.monitorRoutes(mux)
+	s.notificationRoutes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()

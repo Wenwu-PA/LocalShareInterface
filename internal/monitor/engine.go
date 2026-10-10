@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"lanbridge/internal/notify"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -276,12 +277,23 @@ func WriteBatch(ctx context.Context, db *sql.DB, results []Result) ([]Monitor, e
 			affected, _ := res.RowsAffected()
 			if affected > 0 {
 				id, _ := res.LastInsertId()
+				if err = notify.Enqueue(ctx, tx, notify.Event{ID: id, MonitorID: r.ID, Kind: "down", Name: m.Name, Message: r.Message, At: r.At}); err != nil {
+					return nil, err
+				}
 				if _, err = tx.ExecContext(ctx, "INSERT INTO incident_events(incident_id,at,kind,message) VALUES(?,?,'opened',?)", id, r.At, r.Message); err != nil {
 					return nil, err
 				}
 			}
 		}
 		if r.OK {
+			var openID int64
+			if e := tx.QueryRowContext(ctx, "SELECT id FROM incidents WHERE monitor_id=? AND closed IS NULL", r.ID).Scan(&openID); e == nil {
+				if err = notify.Enqueue(ctx, tx, notify.Event{ID: openID, MonitorID: r.ID, Kind: "up", Name: m.Name, Message: "Соединение восстановлено", At: r.At}); err != nil {
+					return nil, err
+				}
+			} else if e != sql.ErrNoRows {
+				return nil, e
+			}
 			if _, err = tx.ExecContext(ctx, "INSERT INTO incident_events(incident_id,at,kind,message) SELECT id,?,'recovered','Соединение восстановлено' FROM incidents WHERE monitor_id=? AND closed IS NULL", r.At, r.ID); err != nil {
 				return nil, err
 			}
