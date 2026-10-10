@@ -27,6 +27,12 @@ def main():
      page.locator('[name=password]').fill(password);page.locator('[name=confirm]').fill(password)
      page.get_by_role("button",name="Создать администратора",exact=True).click()
      page.locator('.sidebar').wait_for();page.goto(base+'/#files')
+     page.get_by_label('Вид файлов',exact=True).select_option('grid')
+     page.reload();page.get_by_label('Вид файлов',exact=True).wait_for()
+     assert page.get_by_label('Вид файлов',exact=True).input_value()=='grid'
+     page.get_by_label('Вид файлов',exact=True).select_option('list')
+     page.reload();page.get_by_label('Вид файлов',exact=True).wait_for()
+     assert page.get_by_label('Вид файлов',exact=True).input_value()=='list'
      page.get_by_role('button',name='Настройки хранилища',exact=True).click()
      page.get_by_label('Общая квота, МиБ',exact=True).fill('64.5')
      page.get_by_role('button',name='Сохранить настройки',exact=True).click()
