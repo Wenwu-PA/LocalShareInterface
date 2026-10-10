@@ -47,6 +47,12 @@ def main():
      content=b'hello file storage'*100000
      page.locator('input[type=file][multiple]:not([webkitdirectory])').set_input_files({"name":"sample.txt","mimeType":"text/plain","buffer":content})
      page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for(timeout=30000)
+     page.get_by_label('Действия: sample.txt',exact=True).click()
+     page.get_by_role('button',name='Предпросмотр',exact=True).click()
+     page.locator('.file-preview-text').wait_for()
+     assert page.locator('.file-preview-text').inner_text()==content[:65536].decode()
+     page.get_by_text('UTF-8 · показаны первые 64 КиБ',exact=True).wait_for()
+     page.get_by_label('Закрыть предпросмотр',exact=True).click()
      with page.expect_download() as downloading:page.get_by_role('link',name='▤ sample.txt',exact=True).click()
      downloaded=downloading.value;assert Path(downloaded.path()).read_bytes()==content
      page.get_by_label('Выбрать sample.txt',exact=True).check()
