@@ -84,6 +84,7 @@ func run() error {
 	if err = app.Monitors.Start(ctx); err != nil {
 		return err
 	}
+	app.Notifications.Start(ctx)
 	var tasks sync.WaitGroup
 	tasks.Add(1)
 	go func() {
@@ -137,6 +138,7 @@ func run() error {
 	cancel()
 	tasks.Wait()
 	app.Monitors.Close()
+	app.Notifications.Close()
 	if _, e := db.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); e != nil {
 		return e
 	}

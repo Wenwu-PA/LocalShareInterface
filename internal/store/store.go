@@ -48,8 +48,8 @@ func Open(path string) (*sql.DB, error) {
 	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version > 2 {
-		return fail(fmt.Errorf("версия БД %d новее поддерживаемой 2", version))
+	if version > 3 {
+		return fail(fmt.Errorf("версия БД %d новее поддерживаемой 3", version))
 	}
 	if version == 0 {
 		tx, e := db.Begin()
@@ -72,6 +72,19 @@ func Open(path string) (*sql.DB, error) {
 		if _, e = tx.Exec(monitorSchema); e != nil {
 			tx.Rollback()
 			return fail(fmt.Errorf("миграция мониторинга отменена: %w", e))
+		}
+		if e = tx.Commit(); e != nil {
+			return fail(e)
+		}
+	}
+	if version < 3 {
+		tx, e := db.Begin()
+		if e != nil {
+			return fail(e)
+		}
+		if _, e = tx.Exec(notificationSchema); e != nil {
+			tx.Rollback()
+			return fail(fmt.Errorf("миграция уведомлений отменена: %w", e))
 		}
 		if e = tx.Commit(); e != nil {
 			return fail(e)
