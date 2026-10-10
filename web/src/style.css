@@ -18,3 +18,5 @@
 
 .file-name .monitor-name{display:block;min-height:0}.file-actions nav .monitor-name{display:inline;min-height:32px}.file-actions nav{line-height:32px}
 @media(max-width:700px){.file-actions>nav{width:100%}.file-actions>.dialog-actions{width:100%;flex-direction:row;flex-wrap:wrap;justify-content:flex-start}.file-actions>.dialog-actions .button{flex:1;white-space:nowrap}}
+
+.storage-fields{margin:0;padding:0;border:0;min-width:0}
