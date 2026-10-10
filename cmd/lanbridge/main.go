@@ -78,6 +78,10 @@ func run() error {
 		}
 	}
 	app := server.New(db, cfg, logger)
+	if err = app.InitFiles(); err != nil {
+		return err
+	}
+	defer app.Files.Close()
 	srv := &http.Server{Addr: net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port)), Handler: app.Handler(web.Assets()), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -86,6 +90,7 @@ func run() error {
 	}
 	app.Notifications.Start(ctx)
 	app.Discovery.Start(ctx)
+	app.Files.Start(ctx)
 	var tasks sync.WaitGroup
 	tasks.Add(1)
 	go func() {

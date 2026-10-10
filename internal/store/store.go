@@ -48,8 +48,8 @@ func Open(path string) (*sql.DB, error) {
 	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version > 4 {
-		return fail(fmt.Errorf("версия БД %d новее поддерживаемой 4", version))
+	if version > 5 {
+		return fail(fmt.Errorf("версия БД %d новее поддерживаемой 5", version))
 	}
 	if version == 0 {
 		tx, e := db.Begin()
@@ -98,6 +98,19 @@ func Open(path string) (*sql.DB, error) {
 		if _, e = tx.Exec(deviceSchema); e != nil {
 			tx.Rollback()
 			return fail(fmt.Errorf("device migration failed: %w", e))
+		}
+		if e = tx.Commit(); e != nil {
+			return fail(e)
+		}
+	}
+	if version < 5 {
+		tx, e := db.Begin()
+		if e != nil {
+			return fail(e)
+		}
+		if _, e = tx.Exec(fileSchema); e != nil {
+			tx.Rollback()
+			return fail(fmt.Errorf("file migration failed: %w", e))
 		}
 		if e = tx.Commit(); e != nil {
 			return fail(e)

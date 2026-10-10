@@ -161,6 +161,8 @@ def main():
     assets = [p for p in (ROOT / "web" / "dist").rglob("*") if p.suffix in {".html", ".css", ".js"}]
     names = [("devices", "Устройства"), ("settings", "Настройки"), ("login", "Вход"),
              ("setup", "Первый запуск"), ("error", "Страница ошибки")]
+    if (output / "files-desktop-dark.png").exists():
+        names.append(("files", "Файлы"))
     cards = []
     for key, title in names:
         images = "".join(f'<a href="{key}-{device}-{theme}.png"><img loading="lazy" src="{key}-{device}-{theme}.png" alt="{title}: {device}, {theme}"><span>{device} · {theme}</span></a>'

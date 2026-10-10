@@ -1,0 +1,16 @@
+package store
+
+const fileSchema = `
+CREATE TABLE file_index(path TEXT PRIMARY KEY,name TEXT NOT NULL,name_fold TEXT NOT NULL,parent TEXT NOT NULL,is_dir INTEGER NOT NULL,size INTEGER NOT NULL,modified INTEGER NOT NULL,owner_id INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL);
+CREATE INDEX file_parent ON file_index(parent,is_dir,name_fold);
+CREATE INDEX file_owner ON file_index(owner_id);
+CREATE TABLE file_acl(path TEXT PRIMARY KEY,access TEXT NOT NULL CHECK(access IN ('admin','users','read')));
+INSERT INTO file_acl VALUES('.','users');
+CREATE TABLE file_settings(id INTEGER PRIMARY KEY CHECK(id=1),global_limit INTEGER NOT NULL DEFAULT 0,user_limit INTEGER NOT NULL DEFAULT 0,critical_free INTEGER NOT NULL DEFAULT 67108864,trash_days INTEGER NOT NULL DEFAULT 30,trash_limit INTEGER NOT NULL DEFAULT 1073741824,partial_hours INTEGER NOT NULL DEFAULT 72);
+INSERT INTO file_settings(id) VALUES(1);
+CREATE TABLE uploads(id TEXT PRIMARY KEY,path TEXT NOT NULL,owner_id INTEGER NOT NULL REFERENCES users(id),size INTEGER NOT NULL,offset INTEGER NOT NULL DEFAULT 0,sha256 TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',conflict TEXT NOT NULL,created INTEGER NOT NULL,updated INTEGER NOT NULL,error TEXT NOT NULL DEFAULT '');
+CREATE INDEX upload_state ON uploads(state,updated);
+CREATE TABLE trash(id TEXT PRIMARY KEY,path TEXT NOT NULL,owner_id INTEGER NOT NULL,size INTEGER NOT NULL,created INTEGER NOT NULL,state TEXT NOT NULL DEFAULT 'moving',acl TEXT NOT NULL DEFAULT '{}');
+CREATE TABLE transfers(id INTEGER PRIMARY KEY,user_id INTEGER NOT NULL,path TEXT NOT NULL,direction TEXT NOT NULL,size INTEGER NOT NULL,started INTEGER NOT NULL,finished INTEGER,status TEXT NOT NULL,error TEXT NOT NULL DEFAULT '');
+CREATE TABLE file_operations(id TEXT PRIMARY KEY,source TEXT NOT NULL,target TEXT NOT NULL,owner_id INTEGER NOT NULL,kind TEXT NOT NULL,created INTEGER NOT NULL,acl TEXT NOT NULL);
+PRAGMA user_version=5;`

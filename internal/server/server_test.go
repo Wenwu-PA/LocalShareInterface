@@ -31,12 +31,17 @@ func newClient(t *testing.T) *testClient {
 	if e != nil {
 		t.Fatal(e)
 	}
-	s := New(db, config.Default(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	cfg := config.Default()
+	cfg.Storage.Root = t.TempDir()
+	s := New(db, cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if e = s.InitFiles(); e != nil {
+		t.Fatal(e)
+	}
 	srv := httptest.NewTLSServer(s.Handler(nil))
 	jar, _ := cookiejar.New(nil)
 	client := srv.Client()
 	client.Jar = jar
-	t.Cleanup(func() { s.CloseStreams(); srv.Close(); db.Close() })
+	t.Cleanup(func() { s.CloseStreams(); srv.Close(); s.Files.Close(); db.Close() })
 	c := &testClient{t: t, srv: srv, http: client, db: db}
 	c.call("GET", "/api/status", nil, 200)
 	return c
