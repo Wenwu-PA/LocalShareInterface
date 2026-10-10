@@ -20,3 +20,5 @@
 @media(max-width:700px){.file-actions>nav{width:100%}.file-actions>.dialog-actions{width:100%;flex-direction:row;flex-wrap:wrap;justify-content:flex-start}.file-actions>.dialog-actions .button{flex:1;white-space:nowrap}}
 
 .storage-fields{margin:0;padding:0;border:0;min-width:0}
+
+.file-preview{width:min(900px,calc(100vw - 32px))}.file-preview h2{overflow-wrap:anywhere;min-width:0}.file-preview img,.file-preview video{display:block;max-width:100%;max-height:60dvh;margin:16px auto;object-fit:contain}.file-preview-text{max-height:55dvh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:16px;border-radius:6px;font:13px/1.6 monospace}
