@@ -26,6 +26,7 @@ type Channel struct {
 	Enabled     bool   `json:"enabled"`
 	Down        bool   `json:"down"`
 	Up          bool   `json:"up"`
+	Device      bool   `json:"device"`
 	Cooldown    int    `json:"cooldown"`
 	URLenv      string `json:"url_env"`
 	TokenEnv    string `json:"token_env"`
