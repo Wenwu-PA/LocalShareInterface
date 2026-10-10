@@ -59,6 +59,7 @@ def main():
                                     page.get_by_role("button", name="Переключить тему", exact=True).filter(visible=True).click()
                                 page.wait_for_function("theme => document.documentElement.dataset.theme === theme", arg=theme)
                                 page.evaluate("document.fonts.ready")
+                                page.evaluate("() => { document.activeElement?.blur(); window.scrollTo(0, 0); }")
                                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), screen
                                 page.screenshot(path=str(output / f"{screen}-{device}-{theme}.png"), full_page=True, animations="disabled")
                         page.set_viewport_size({"width": 1440, "height": 1000})
@@ -86,6 +87,31 @@ def main():
                         page.goto(base + "/#" + screen)
                         page.locator(".workspace").wait_for()
                         page.locator(".live").wait_for()
+                        if screen == "devices":
+                            page.get_by_role("heading", name="Обнаружение в локальной сети", exact=True).wait_for()
+                            interfaces = page.request.get(base + "/api/devices").json()["interfaces"]
+                            if interfaces:
+                                own_ip = interfaces[0]["ip"]
+                                page.get_by_label("Подсеть IPv4", exact=True).fill(own_ip + "/32")
+                                page.get_by_role("button", name="Сканировать сеть", exact=True).click()
+                                page.locator(".page-content table tbody tr").filter(has_text=own_ip).locator(".monitor-name").wait_for(timeout=20000)
+                                page.locator(".page-content table tbody tr").filter(has_text=own_ip).locator(".monitor-name").click()
+                                page.get_by_label("Имя устройства", exact=True).fill("Тестовый сервер")
+                                page.get_by_label("Известное устройство", exact=True).check()
+                                page.get_by_role("button", name="Сохранить устройство", exact=True).click()
+                                page.locator(".page-content table .monitor-name").filter(has_text="Тестовый сервер").wait_for()
+                            page.get_by_label("Проверка", exact=True).select_option("port")
+                            page.get_by_label("Цель диагностики", exact=True).fill(f"127.0.0.1:{port}")
+                            page.get_by_role("button", name="Запустить диагностику", exact=True).click()
+                            page.locator(".diagnostic-output").filter(has_text="OK").wait_for()
+                            page.get_by_label("Проверка", exact=True).select_option("speed")
+                            page.get_by_role("button", name="Запустить диагностику", exact=True).click()
+                            page.locator(".diagnostic-output").filter(has_text="16.0 МиБ").wait_for()
+                            page.get_by_label("Проверка", exact=True).select_option("ping")
+                            page.get_by_label("Цель диагностики", exact=True).fill("127.0.0.1")
+                            page.get_by_role("button", name="Запустить диагностику", exact=True).click()
+                            page.get_by_role("button", name="Отменить диагностику", exact=True).click()
+                            page.locator(".diagnostic-output").filter(has_text="Отменено").wait_for()
                         if screen == "settings":
                             page.get_by_label("Название сети", exact=True).fill("Моя локальная сеть")
                             page.get_by_role("button", name="Сохранить настройки", exact=True).click()
@@ -140,7 +166,7 @@ def main():
         images = "".join(f'<a href="{key}-{device}-{theme}.png"><img loading="lazy" src="{key}-{device}-{theme}.png" alt="{title}: {device}, {theme}"><span>{device} · {theme}</span></a>'
                          for device in ("desktop", "mobile") for theme in ("dark", "light"))
         cards.append(f'<section><h2>{title}</h2><div class="images">{images}</div></section>')
-    (output / "index.html").write_text('''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LANBridge — новые экраны</title><style>body{margin:0;padding:32px;background:#0B0D11;color:#EFF3FA;font:14px system-ui}main{max-width:1500px;margin:auto}h1{font-size:30px}p{color:#95A2B4;line-height:1.7}section{margin:40px 0}.images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}a{display:grid;gap:12px;color:#95A2B4;text-decoration:none;border:1px solid #283240;border-radius:8px;padding:16px;background:#12161D}img{width:100%;height:360px;object-fit:contain;object-position:top}h2{font-size:21px}@media(max-width:650px){body{padding:20px}.images{grid-template-columns:1fr}}</style><main><h1>LANBridge · новые экраны</h1><p>Снимки запущенного Go-приложения на временных данных. Нажмите изображение для полного размера. Устройства — проект экрана с пустым состоянием; сканер ещё не подключён. Вход, первый запуск и настройки работают.</p>''' + "".join(cards) + "</main></html>", encoding="utf-8")
+    (output / "index.html").write_text('''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LANBridge — новые экраны</title><style>body{margin:0;padding:32px;background:#0B0D11;color:#EFF3FA;font:14px system-ui}main{max-width:1500px;margin:auto}h1{font-size:30px}p{color:#95A2B4;line-height:1.7}section{margin:40px 0}.images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}a{display:grid;gap:12px;color:#95A2B4;text-decoration:none;border:1px solid #283240;border-radius:8px;padding:16px;background:#12161D}img{width:100%;height:360px;object-fit:contain;object-position:top}h2{font-size:21px}@media(max-width:650px){body{padding:20px}.images{grid-template-columns:1fr}}</style><main><h1>LANBridge · новые экраны</h1><p>Снимки запущенного Go-приложения на временных данных. Нажмите изображение для полного размера. На экране устройств — результат проверки адреса самого тестового сервера. Вход, первый запуск и настройки работают.</p>''' + "".join(cards) + "</main></html>", encoding="utf-8")
     sheet = Image.new("RGB", (1500, 1150), "#0B0D11")
     draw = ImageDraw.Draw(sheet)
     font = ImageFont.load_default(size=20)

@@ -4,6 +4,7 @@
 > описаны в [docs/go-foundation.md](docs/go-foundation.md), план и решения — в
 > [docs/decisions.md](docs/decisions.md). Оригинальные макеты находятся в `design/`.
 > Уведомления, очередь и наблюдатель: [docs/go-notifications.md](docs/go-notifications.md).
+> Устройства и диагностика: [docs/go-devices.md](docs/go-devices.md).
 > Инструкции ниже относятся к существующей Python-версии; её данные сохраняются.
 
 [![Версия](docs/badges/version.svg)](CHANGELOG.md) [![MIT](docs/badges/license.svg)](LICENSE) ![Python](docs/badges/python.svg) ![Статус](docs/badges/status.svg)
