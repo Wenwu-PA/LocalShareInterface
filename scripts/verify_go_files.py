@@ -94,6 +94,17 @@ def main():
      page.locator('.file-viewport').evaluate('(e)=>e.scrollTop=48000')
      page.wait_for_function("()=>document.querySelector('.file-row')?.style.top!=='0px'")
      assert page.locator('.file-row').count()<=18
+     page.get_by_label('Вид файлов',exact=True).select_option('grid')
+     page.locator('.file-tile').first.wait_for()
+     assert page.locator('.file-tile').count()<=35
+     page.locator('.file-viewport').evaluate('(e)=>e.scrollTop=e.scrollHeight')
+     page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for()
+     page.set_viewport_size({'width':390,'height':1000})
+     page.wait_for_function("()=>document.querySelector('.file-tile')?.style.top==='0px'")
+     assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth')
+     assert page.locator('.file-tile').count()<=7
+     page.get_by_label('Вид файлов',exact=True).select_option('list')
+     page.set_viewport_size({'width':1440,'height':1000})
      page.get_by_label('Поиск файлов').fill('sample');page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for()
      page.get_by_label('Поиск файлов').fill('');page.get_by_role('button',name='▱ load-0000',exact=True).wait_for()
      assert not errors,errors
