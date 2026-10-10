@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 	"lanbridge/internal/config"
+	"lanbridge/internal/files"
 	"lanbridge/internal/monitor"
 	"lanbridge/internal/network"
 	"lanbridge/internal/notify"
@@ -56,6 +57,8 @@ type Server struct {
 	Monitors       *monitor.Engine
 	Notifications  *notify.Worker
 	Discovery      *network.Discovery
+	Files          *files.Service
+	zipTickets     map[string]zipTicket
 }
 
 func New(db *sql.DB, c config.Config, log *slog.Logger) *Server {
@@ -141,6 +144,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 	s.notificationRoutes(mux)
 	s.deviceRoutes(mux)
 	s.diagnosticRoutes(mux)
+	s.fileRoutes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
@@ -190,6 +194,9 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if value := recover(); value != nil {
+				if value == http.ErrAbortHandler {
+					panic(value)
+				}
 				s.Log.Error("request panic", "method", r.Method, "path", r.URL.Path)
 				problem(w, 500, "internal", "Внутренняя ошибка. Повторите запрос.")
 			}
