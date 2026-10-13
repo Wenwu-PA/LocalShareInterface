@@ -64,6 +64,13 @@ def main():
      content=b'hello file storage'*100000
      page.locator('input[type=file][multiple]:not([webkitdirectory])').set_input_files({"name":"sample.txt","mimeType":"text/plain","buffer":content})
      page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for(timeout=30000)
+     page.locator('.upload-history summary').click()
+     page.locator('.upload-history strong').get_by_text('sample.txt',exact=True).wait_for()
+     page.get_by_label('Поиск в истории загрузок',exact=True).fill('несуществующий')
+     page.locator('.upload-history').get_by_text('Ничего не найдено.',exact=True).wait_for()
+     page.get_by_label('Поиск в истории загрузок',exact=True).fill('')
+     page.locator('.upload-history summary').click()
+
      page.get_by_label('Действия: sample.txt',exact=True).click()
      page.get_by_role('button',name='Предпросмотр',exact=True).click()
      page.locator('.file-preview-text').wait_for()
