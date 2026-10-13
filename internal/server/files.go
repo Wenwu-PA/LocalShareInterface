@@ -499,7 +499,7 @@ func (s *Server) restoreFile(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) transfers(w http.ResponseWriter, r *http.Request) {
 	a := fileActor(r)
-	rows, e := s.DB.QueryContext(r.Context(), "SELECT id,user_id,path,direction,size,started,COALESCE(finished,0),status,error FROM transfers WHERE (? OR user_id=?) ORDER BY id DESC LIMIT 200", a.Admin, a.ID)
+	rows, e := s.DB.QueryContext(r.Context(), "SELECT t.id,t.user_id,t.path,t.direction,t.size,t.started,COALESCE(t.finished,0),t.status,t.error,COALESCE(u.username,'') FROM transfers t LEFT JOIN users u ON u.id=t.user_id WHERE (? OR t.user_id=?) ORDER BY t.id DESC LIMIT 200", a.Admin, a.ID)
 	if e != nil {
 		s.dbError(w, e)
 		return
@@ -508,12 +508,12 @@ func (s *Server) transfers(w http.ResponseWriter, r *http.Request) {
 	items := []map[string]any{}
 	for rows.Next() {
 		var id, user, size, started, finished int64
-		var name, direction, status, message string
-		if e = rows.Scan(&id, &user, &name, &direction, &size, &started, &finished, &status, &message); e != nil {
+		var name, direction, status, message, username string
+		if e = rows.Scan(&id, &user, &name, &direction, &size, &started, &finished, &status, &message, &username); e != nil {
 			s.dbError(w, e)
 			return
 		}
-		items = append(items, map[string]any{"id": id, "user_id": user, "path": name, "direction": direction, "size": size, "started": started, "finished": finished, "status": status, "error": message})
+		items = append(items, map[string]any{"id": id, "user_id": user, "username": username, "path": name, "direction": direction, "size": size, "started": started, "finished": finished, "status": status, "error": message})
 	}
 	if e = rows.Err(); e != nil {
 		s.dbError(w, e)
