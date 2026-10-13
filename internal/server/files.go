@@ -75,7 +75,13 @@ func (s *Server) listFiles(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	offset, _ := strconv.Atoi(q.Get("offset"))
 	limit, _ := strconv.Atoi(q.Get("limit"))
-	entries, e := s.Files.List(r.Context(), fileActor(r), q.Get("path"), q.Get("q"), q.Get("sort"), q.Get("order"), offset, limit)
+	var entries []files.Entry
+	var e error
+	if q.Get("folders") == "1" {
+		entries, e = s.Files.Folders(r.Context(), fileActor(r), q.Get("path"), offset, limit)
+	} else {
+		entries, e = s.Files.List(r.Context(), fileActor(r), q.Get("path"), q.Get("q"), q.Get("sort"), q.Get("order"), offset, limit)
+	}
 	if e != nil {
 		s.fileError(w, e)
 		return

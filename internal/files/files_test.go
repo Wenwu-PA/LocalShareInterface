@@ -356,3 +356,33 @@ func TestRecoverPublishedHardLink(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestFolderListingFiltersBeforePagination(t *testing.T) {
+	s, a := testService(t)
+	ctx := context.Background()
+	for _, name := range []string{"a-hidden", "b-visible", "c-visible"} {
+		if e := s.Mkdir(ctx, a, name); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if e := s.Root.WriteFile("a-file.txt", []byte("text"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.Index(ctx); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.SetAccess(ctx, a, "a-hidden", "admin"); e != nil {
+		t.Fatal(e)
+	}
+	rows, e := s.Folders(ctx, Actor{ID: 2}, ".", 0, 1)
+	if e != nil || len(rows) != 1 || rows[0].Path != "b-visible" || !rows[0].Directory {
+		t.Fatal(rows, e)
+	}
+	rows, e = s.Folders(ctx, Actor{ID: 2}, ".", 1, 1)
+	if e != nil || len(rows) != 1 || rows[0].Path != "c-visible" {
+		t.Fatal(rows, e)
+	}
+	if _, e = s.Folders(ctx, Actor{ID: 2}, "a-hidden", 0, 50); !errors.Is(e, ErrAccess) {
+		t.Fatal(e)
+	}
+}

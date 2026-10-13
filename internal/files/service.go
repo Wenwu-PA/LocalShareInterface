@@ -315,6 +315,12 @@ func (s *Service) record(ctx context.Context, name string, owner int64) error {
 	return e
 }
 func (s *Service) List(ctx context.Context, a Actor, raw, q, sort, order string, offset, limit int) ([]Entry, error) {
+	return s.list(ctx, a, raw, q, sort, order, offset, limit, false)
+}
+func (s *Service) Folders(ctx context.Context, a Actor, raw string, offset, limit int) ([]Entry, error) {
+	return s.list(ctx, a, raw, "", "name", "asc", offset, limit, true)
+}
+func (s *Service) list(ctx context.Context, a Actor, raw, q, sort, order string, offset, limit int, foldersOnly bool) ([]Entry, error) {
 	name, e := s.check(ctx, a, raw, false)
 	if e != nil {
 		return nil, e
@@ -339,6 +345,9 @@ func (s *Service) List(ctx context.Context, a Actor, raw, q, sort, order string,
 	if q != "" {
 		query = "SELECT path,name,is_dir,size,modified FROM file_index WHERE instr(name_fold,?)>0"
 		args = []any{strings.ToLower(q)}
+	}
+	if foldersOnly {
+		query += " AND is_dir=1"
 	}
 	// Apply authorization before pagination so hidden entries cannot consume a page.
 	if !a.Admin {

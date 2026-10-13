@@ -50,6 +50,17 @@ def main():
      page.locator('dialog input[name=name]').fill('Фото/Пустая')
      page.get_by_role("button",name="Применить",exact=True).click()
      page.get_by_role('button',name='▱ Фото',exact=True).wait_for()
+     tree=page.get_by_role('complementary',name='Дерево папок')
+     tree.get_by_role('button',name='Обновить дерево',exact=True).click()
+     tree.get_by_role('button',name='Раскрыть Фото',exact=True).click()
+     tree.get_by_role('button',name='Пустая',exact=True).click()
+     page.get_by_role('heading',name='Папка пуста',exact=True).wait_for()
+     tree.get_by_role('button',name='Общая папка',exact=True).click()
+     page.get_by_role('button',name='▱ Фото',exact=True).wait_for()
+     tree.get_by_role('button',name='Свернуть дерево папок',exact=True).click()
+     assert tree.get_by_role('navigation').count()==0
+     tree.get_by_role('button',name='Показать дерево папок',exact=True).click()
+
      content=b'hello file storage'*100000
      page.locator('input[type=file][multiple]:not([webkitdirectory])').set_input_files({"name":"sample.txt","mimeType":"text/plain","buffer":content})
      page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for(timeout=30000)
@@ -116,6 +127,12 @@ def main():
      page.get_by_role('button',name='Обновить',exact=True).click();page.get_by_role('button',name='Загрузить ещё',exact=True).wait_for()
      page.get_by_role('button',name='Загрузить ещё',exact=True).click();page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('1000 объектов')")
      page.get_by_role('button',name='Загрузить ещё',exact=True).click();page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('1104 объектов')")
+     tree.get_by_role('button',name='Обновить дерево',exact=True).click()
+     tree.get_by_role('button',name='load-0000',exact=True).wait_for()
+     assert tree.locator('.folder-tree-row').count()==50
+     tree.get_by_role('button',name='Далее',exact=True).click()
+     tree.get_by_role('button',name='load-0050',exact=True).wait_for()
+     assert tree.locator('.folder-tree-row').count()==50
      page.get_by_role('button',name='Выбрать первые 1000',exact=True).click()
      page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('выбрано 1000')")
      page.get_by_role('button',name='Снять выбор',exact=True).click()
