@@ -95,6 +95,17 @@ def main():
      with zipfile.ZipFile(downloading.value.path()) as archive:assert archive.read('sample.txt')==content
      page.locator('.upload-history summary').click()
      page.locator('.upload-history .upload-row').filter(has_text='Скачивание ZIP').first.wait_for()
+     page.get_by_label('Тип передачи',exact=True).select_option('download_zip')
+     assert page.locator('.upload-history .upload-row').count()==1
+     assert 'fileadmin' in page.locator('.upload-history .upload-row').inner_text()
+     page.get_by_label('Поиск в истории передач',exact=True).fill('fileadmin')
+     assert page.locator('.upload-history .upload-row').count()==1
+     page.get_by_label('Тип передачи',exact=True).select_option('upload')
+     assert page.locator('.upload-history .upload-row').count()==1
+     assert 'Загрузка' in page.locator('.upload-history .upload-row').inner_text()
+     page.get_by_label('Поиск в истории передач',exact=True).fill('')
+     page.get_by_label('Тип передачи',exact=True).select_option('')
+
      page.locator('.upload-history summary').click()
 
      page.get_by_label('Действия: sample.txt',exact=True).click();page.get_by_role('button',name='Копировать',exact=True).click()
