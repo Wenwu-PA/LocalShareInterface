@@ -61,6 +61,12 @@ def main():
      page.get_by_label('Закрыть предпросмотр',exact=True).click()
      with page.expect_download() as downloading:page.get_by_role('link',name='▤ sample.txt',exact=True).click()
      downloaded=downloading.value;assert Path(downloaded.path()).read_bytes()==content
+     page.get_by_role('button',name='Выбрать загруженные',exact=True).click()
+     assert page.get_by_label('Выбрать sample.txt',exact=True).is_checked()
+     assert page.get_by_label('Выбрать Фото',exact=True).is_checked()
+     page.get_by_role('button',name='Снять выбор',exact=True).click()
+     assert not page.get_by_label('Выбрать sample.txt',exact=True).is_checked()
+     assert page.get_by_role('button',name='Скачать ZIP',exact=True).is_disabled()
      page.get_by_label('Выбрать sample.txt',exact=True).check()
      with page.expect_download() as downloading:page.get_by_role('button',name='Скачать ZIP',exact=True).click()
      import zipfile
@@ -110,6 +116,9 @@ def main():
      page.get_by_role('button',name='Обновить',exact=True).click();page.get_by_role('button',name='Загрузить ещё',exact=True).wait_for()
      page.get_by_role('button',name='Загрузить ещё',exact=True).click();page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('1000 объектов')")
      page.get_by_role('button',name='Загрузить ещё',exact=True).click();page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('1104 объектов')")
+     page.get_by_role('button',name='Выбрать первые 1000',exact=True).click()
+     page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('выбрано 1000')")
+     page.get_by_role('button',name='Снять выбор',exact=True).click()
      assert page.locator('.file-row').count()<=18
      page.locator('.file-viewport').evaluate('(e)=>e.scrollTop=48000')
      page.wait_for_function("()=>document.querySelector('.file-row')?.style.top!=='0px'")
