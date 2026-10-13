@@ -41,6 +41,20 @@ func TestFileAPIUploadRangeZipAndTrash(t *testing.T) {
 	if resp.StatusCode != 206 || string(raw) != "streamed" {
 		t.Fatal(resp.StatusCode, string(raw))
 	}
+	var transferred int64
+	var transferState string
+	if e = c.db.QueryRow("SELECT size,status FROM transfers WHERE direction='download'").Scan(&transferred, &transferState); e != nil || transferred != 8 || transferState != "partial" {
+		t.Fatal(transferred, transferState, e)
+	}
+	resp, e = c.http.Get(c.srv.URL + "/api/files/download?path=folder/data.txt")
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	if e = c.db.QueryRow("SELECT size,status FROM transfers WHERE direction='download' ORDER BY id DESC LIMIT 1").Scan(&transferred, &transferState); e != nil || transferred != int64(len(data)) || transferState != "complete" {
+		t.Fatal(transferred, transferState, e)
+	}
 	ticket := c.call("POST", "/api/files/zip-ticket", map[string]any{"paths": []string{"folder"}}, 201)
 	resp, e = c.http.Get(c.srv.URL + ticket["url"].(string))
 	if e != nil {

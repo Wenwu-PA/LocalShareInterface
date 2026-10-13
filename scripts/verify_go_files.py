@@ -66,9 +66,9 @@ def main():
      page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for(timeout=30000)
      page.locator('.upload-history summary').click()
      page.locator('.upload-history strong').get_by_text('sample.txt',exact=True).wait_for()
-     page.get_by_label('Поиск в истории загрузок',exact=True).fill('несуществующий')
+     page.get_by_label('Поиск в истории передач',exact=True).fill('несуществующий')
      page.locator('.upload-history').get_by_text('Ничего не найдено.',exact=True).wait_for()
-     page.get_by_label('Поиск в истории загрузок',exact=True).fill('')
+     page.get_by_label('Поиск в истории передач',exact=True).fill('')
      page.locator('.upload-history summary').click()
 
      page.get_by_label('Действия: sample.txt',exact=True).click()
@@ -79,6 +79,10 @@ def main():
      page.get_by_label('Закрыть предпросмотр',exact=True).click()
      with page.expect_download() as downloading:page.get_by_role('link',name='▤ sample.txt',exact=True).click()
      downloaded=downloading.value;assert Path(downloaded.path()).read_bytes()==content
+     page.locator('.upload-history summary').click()
+     page.locator('.upload-history .upload-row').filter(has_text='Скачивание').first.wait_for()
+     page.locator('.upload-history summary').click()
+
      page.get_by_role('button',name='Выбрать загруженные',exact=True).click()
      assert page.get_by_label('Выбрать sample.txt',exact=True).is_checked()
      assert page.get_by_label('Выбрать Фото',exact=True).is_checked()
