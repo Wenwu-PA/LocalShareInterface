@@ -93,6 +93,10 @@ def main():
      with page.expect_download() as downloading:page.get_by_role('button',name='Скачать ZIP',exact=True).click()
      import zipfile
      with zipfile.ZipFile(downloading.value.path()) as archive:assert archive.read('sample.txt')==content
+     page.locator('.upload-history summary').click()
+     page.locator('.upload-history .upload-row').filter(has_text='Скачивание ZIP').first.wait_for()
+     page.locator('.upload-history summary').click()
+
      page.get_by_label('Действия: sample.txt',exact=True).click();page.get_by_role('button',name='Копировать',exact=True).click()
      page.locator('dialog input[name=name]').fill('copy.txt');page.get_by_role('button',name='Применить',exact=True).click()
      page.get_by_role('link',name='▤ copy.txt',exact=True).wait_for()
