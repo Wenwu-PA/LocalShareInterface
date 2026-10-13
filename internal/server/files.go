@@ -307,7 +307,25 @@ func (s *Server) zipFiles(w http.ResponseWriter, r *http.Request) {
 func (s *Server) streamZip(w http.ResponseWriter, r *http.Request, paths []string) {
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=lanbridge.zip")
-	writer := &streamingFileWriter{ResponseWriter: w}
+	tracker := &downloadWriter{ResponseWriter: w}
+	writer := &streamingFileWriter{ResponseWriter: tracker}
+	started := time.Now().Unix()
+	complete := false
+	defer func() {
+		if tracker.status != http.StatusOK {
+			return
+		}
+		status, message := "complete", ""
+		if !complete || tracker.failed || r.Context().Err() != nil {
+			status = "interrupted"
+			message = "Передача ZIP прервана"
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if _, err := s.DB.ExecContext(ctx, "INSERT INTO transfers(user_id,path,direction,size,started,finished,status,error) VALUES(?,?,'download_zip',?,?,?,?,?)", fileActor(r).ID, strings.Join(paths, "; "), tracker.bytes, started, time.Now().Unix(), status, message); err != nil {
+			s.Log.Error("ZIP history failed", "error", err)
+		}
+	}()
 	defer http.NewResponseController(w).SetWriteDeadline(time.Time{})
 	if e := s.Files.Zip(r.Context(), fileActor(r), paths, writer); e != nil {
 		if !writer.written {
@@ -317,7 +335,9 @@ func (s *Server) streamZip(w http.ResponseWriter, r *http.Request, paths []strin
 			s.Log.Warn("ZIP stream interrupted", "error", e)
 			panic(http.ErrAbortHandler)
 		}
+		return
 	}
+	complete = true
 }
 
 type zipTicket struct {
@@ -363,6 +383,11 @@ func (s *Server) createZipTicket(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 201, map[string]string{"url": "/api/files/zip/" + id})
 }
 func (s *Server) downloadZip(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "HEAD" {
+		w.Header().Set("Allow", "GET")
+		problem(w, 405, "method", "Используйте GET для скачивания ZIP")
+		return
+	}
 	cookie, _ := r.Cookie(sessionCookie)
 	id := r.PathValue("ticket")
 	s.mu.Lock()
