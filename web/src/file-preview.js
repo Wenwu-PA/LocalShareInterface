@@ -16,7 +16,7 @@ export function FilePreview({item, onClose}) {
   if (kind === 'text') (async () => {
    try {
     if (!item.size) {setText('');return}
-    const response = await fetch(url, {signal:controller.signal, headers:{Range:'bytes=0-65535'}});
+    const response = await fetch(url+'&inline=1', {signal:controller.signal, headers:{Range:'bytes=0-65535'}});
     if (!response.ok) throw new Error('Не удалось открыть файл (' + response.status + ')');
     const reader = response.body.getReader(), buffer = new Uint8Array(limit);
     let used = 0;

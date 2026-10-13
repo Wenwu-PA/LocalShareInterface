@@ -224,7 +224,35 @@ func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
 	w.Header().Set("Cache-Control", "private, no-cache")
 	w.Header().Set("ETag", fmt.Sprintf(`W/"%x-%x"`, info.ModTime().UnixNano(), info.Size()))
-	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+	if r.Method == "HEAD" || inline {
+		http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+		return
+	}
+	tracker := &downloadWriter{ResponseWriter: w}
+	started := time.Now().Unix()
+	returned := false
+	defer func() {
+		if tracker.status != http.StatusOK && tracker.status != http.StatusPartialContent {
+			return
+		}
+		state := "complete"
+		message := ""
+		if tracker.status == http.StatusPartialContent {
+			state = "partial"
+		}
+		expected, parseErr := strconv.ParseInt(w.Header().Get("Content-Length"), 10, 64)
+		if !returned || tracker.failed || r.Context().Err() != nil || (parseErr == nil && expected != tracker.bytes) {
+			state = "interrupted"
+			message = "Передача прервана"
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if _, err := s.DB.ExecContext(ctx, "INSERT INTO transfers(user_id,path,direction,size,started,finished,status,error) VALUES(?,?,'download',?,?,?,?,?)", a.ID, name, tracker.bytes, started, time.Now().Unix(), state, message); err != nil {
+			s.Log.Error("download history failed", "error", err)
+		}
+	}()
+	http.ServeContent(tracker, r, info.Name(), info.ModTime(), f)
+	returned = true
 }
 func (s *Server) fileOperation(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -467,4 +495,31 @@ func (s *Server) transfers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResponse(w, 200, items)
+}
+
+// Preserve HTTP response control while counting bytes accepted by the writer.
+type downloadWriter struct {
+	http.ResponseWriter
+	status int
+	bytes  int64
+	failed bool
+}
+
+func (w *downloadWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+func (w *downloadWriter) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+func (w *downloadWriter) Write(data []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	n, e := w.ResponseWriter.Write(data)
+	w.bytes += int64(n)
+	if e != nil || n != len(data) {
+		w.failed = true
+	}
+	return n, e
 }
