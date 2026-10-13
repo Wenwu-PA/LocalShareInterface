@@ -91,6 +91,20 @@ def main():
        page.screenshot(path=str(output/f'files-{device}-{theme}.png'),full_page=True)
        assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth'), 'horizontal overflow'
      page.set_viewport_size({"width":1440,"height":1000})
+     page.get_by_label('Сортировка файлов',exact=True).select_option('size')
+     with page.expect_response(lambda r:'/api/files?' in r.url and 'order=desc' in r.url) as sorted_response:
+      page.get_by_label('Порядок сортировки',exact=True).select_option('desc')
+     entries=sorted_response.value.json()
+     sizes=[item['size'] for item in entries if not item['directory']]
+     assert sizes==sorted(sizes,reverse=True) and len(set(sizes))>1
+     page.wait_for_function("()=>document.querySelector('.file-row a')?.textContent.includes('copy.txt')")
+     with page.expect_response(lambda r:'/api/files?' in r.url and 'order=asc' in r.url) as sorted_response:
+      page.get_by_label('Порядок сортировки',exact=True).select_option('asc')
+     entries=sorted_response.value.json()
+     sizes=[item['size'] for item in entries if not item['directory']]
+     assert sizes==sorted(sizes)
+     page.wait_for_function("()=>document.querySelector('.file-row a')?.textContent.includes('resume.txt')")
+     page.get_by_label('Сортировка файлов',exact=True).select_option('name')
      # Generate 1,100 real empty folders through the API to exercise pagination.
      page.evaluate("""async()=>{const s=await(await fetch('/api/status')).json();for(let i=0;i<1100;i++){const r=await fetch('/api/files/mkdir',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify({path:'load-'+String(i).padStart(4,'0')})});if(!r.ok)throw new Error(await r.text())}}""")
      page.get_by_role('button',name='Обновить',exact=True).click();page.get_by_role('button',name='Загрузить ещё',exact=True).wait_for()
