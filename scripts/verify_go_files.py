@@ -66,6 +66,7 @@ def main():
      page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for(timeout=30000)
      page.locator('.upload-history summary').click()
      page.locator('.upload-history strong').get_by_text('sample.txt',exact=True).wait_for()
+     assert 'Средняя скорость:' in page.locator('.transfer-timing').first.inner_text()
      page.get_by_label('Поиск в истории передач',exact=True).fill('несуществующий')
      page.locator('.upload-history').get_by_text('Ничего не найдено.',exact=True).wait_for()
      page.get_by_label('Поиск в истории передач',exact=True).fill('')
