@@ -1,0 +1,25 @@
+[Unit]
+Description=LANBridge Go file sharing and monitoring
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=lanbridge
+Group=lanbridge
+WorkingDirectory=/var/lib/lanbridge
+ExecStart=/opt/lanbridge/lanbridge -config /etc/lanbridge/config.go.yaml
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=40
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lanbridge /srv/lanbridge
+
+[Install]
+WantedBy=multi-user.target

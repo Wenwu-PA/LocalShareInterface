@@ -1,0 +1,31 @@
+FROM node:24-bookworm-slim AS frontend
+WORKDIR /source/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
+FROM golang:1.27.2-bookworm AS backend
+WORKDIR /source
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY web/embed.go ./web/embed.go
+COPY web/foundation ./web/foundation
+COPY --from=frontend /source/web/dist ./web/dist
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /lanbridge ./cmd/lanbridge
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates iputils-ping iproute2 traceroute \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 lanbridge \
+    && useradd --uid 10001 --gid 10001 --no-create-home lanbridge \
+    && mkdir -p /data /files && chown 10001:10001 /data /files
+COPY --from=backend /lanbridge /usr/local/bin/lanbridge
+USER 10001:10001
+ENV LANBRIDGE_GO_HOST=0.0.0.0 LANBRIDGE_GO_PORT=8766 LANBRIDGE_GO_DATA=/data LANBRIDGE_GO_ROOT=/files
+WORKDIR /data
+EXPOSE 8766
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/lanbridge"]

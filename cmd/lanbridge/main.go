@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
@@ -27,12 +28,12 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := startApplication(); err != nil {
 		fmt.Fprintln(os.Stderr, "LANBridge:", err)
 		os.Exit(1)
 	}
 }
-func run() error {
+func run(parent context.Context, ready func()) (resultErr error) {
 	// Keep retained Go heap small on lightweight hosts; an operator can override it.
 	if os.Getenv("GOMEMLIMIT") == "" {
 		debug.SetMemoryLimit(40 << 20)
@@ -63,6 +64,11 @@ func run() error {
 	var level slog.Level
 	_ = level.UnmarshalText([]byte(strings.ToUpper(cfg.Logs.Level)))
 	logger := slog.New(slog.NewJSONHandler(io.MultiWriter(os.Stderr, logFile), &slog.HandlerOptions{Level: level}))
+	defer func() {
+		if resultErr != nil {
+			logger.Error("application stopped with error", "error", resultErr)
+		}
+	}()
 	dbPath := filepath.Join(cfg.Storage.Data, "lanbridge-go.sqlite3")
 	pending, err := store.RecoveryStatus(dbPath)
 	if err != nil {
@@ -118,8 +124,18 @@ func run() error {
 	}
 	defer app.Files.Close()
 	srv := &http.Server{Addr: net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port)), Handler: app.Handler(web.Assets()), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	certificate, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+	srv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12}
+	listener, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
 	if err = app.Monitors.Start(ctx); err != nil {
 		return err
 	}
@@ -164,7 +180,8 @@ func run() error {
 		}
 	}()
 	result := make(chan error, 1)
-	go func() { result <- srv.ListenAndServeTLS(cert, key) }()
+	go func() { result <- srv.ServeTLS(listener, "", "") }()
+	ready()
 	logger.Info("starting HTTPS server", "address", "https://"+srv.Addr, "database", filepath.Join(cfg.Storage.Data, "lanbridge-go.sqlite3"))
 	select {
 	case err = <-result:
