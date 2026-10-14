@@ -11,7 +11,8 @@
     "@fontsource/inter": "5.3.0",
     "@noble/hashes": "2.4.0",
     "htm": "3.1.1",
-    "preact": "11.0.1"
+    "preact": "11.0.1",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "vite": "8.3.4"

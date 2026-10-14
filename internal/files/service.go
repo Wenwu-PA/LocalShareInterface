@@ -424,3 +424,25 @@ func (s *Service) Open(ctx context.Context, a Actor, raw string) (*os.File, erro
 	}
 	return s.Root.Open(name)
 }
+
+// ShareInfo validates the entire shared tree using the owner's current rights.
+// Creating a public capability requires write access, not just read access.
+func (s *Service) ShareInfo(ctx context.Context, a Actor, raw string, create bool) (fs.FileInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	name, err := s.check(ctx, a, raw, create)
+	if err != nil {
+		return nil, err
+	}
+	if name == "." {
+		return nil, ErrAccess
+	}
+	info, err := s.Root.Lstat(name)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.walk(ctx, a, name, create, func(string, fs.FileInfo) error { return nil }); err != nil {
+		return nil, err
+	}
+	return info, nil
+}

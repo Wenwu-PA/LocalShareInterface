@@ -18,11 +18,12 @@ import (
 )
 
 type testClient struct {
-	t    *testing.T
-	srv  *httptest.Server
-	http *http.Client
-	csrf string
-	db   *sql.DB
+	t      *testing.T
+	srv    *httptest.Server
+	http   *http.Client
+	csrf   string
+	db     *sql.DB
+	server *Server
 }
 
 func newClient(t *testing.T) *testClient {
@@ -42,7 +43,7 @@ func newClient(t *testing.T) *testClient {
 	client := srv.Client()
 	client.Jar = jar
 	t.Cleanup(func() { s.CloseStreams(); srv.Close(); s.Files.Close(); db.Close() })
-	c := &testClient{t: t, srv: srv, http: client, db: db}
+	c := &testClient{t: t, srv: srv, http: client, db: db, server: s}
 	c.call("GET", "/api/status", nil, 200)
 	return c
 }

@@ -48,8 +48,8 @@ func Open(path string) (*sql.DB, error) {
 	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version > 5 {
-		return fail(fmt.Errorf("версия БД %d новее поддерживаемой 5", version))
+	if version > 6 {
+		return fail(fmt.Errorf("версия БД %d новее поддерживаемой 6", version))
 	}
 	if version == 0 {
 		tx, e := db.Begin()
@@ -111,6 +111,19 @@ func Open(path string) (*sql.DB, error) {
 		if _, e = tx.Exec(fileSchema); e != nil {
 			tx.Rollback()
 			return fail(fmt.Errorf("file migration failed: %w", e))
+		}
+		if e = tx.Commit(); e != nil {
+			return fail(e)
+		}
+	}
+	if version < 6 {
+		tx, e := db.Begin()
+		if e != nil {
+			return fail(e)
+		}
+		if _, e = tx.Exec(shareSchema); e != nil {
+			tx.Rollback()
+			return fail(fmt.Errorf("share migration failed: %w", e))
 		}
 		if e = tx.Commit(); e != nil {
 			return fail(e)

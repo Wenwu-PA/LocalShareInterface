@@ -32,3 +32,7 @@
 .upload-history summary{cursor:pointer;font-weight:600;font-size:16px;min-height:32px}.upload-history .toolbar{display:flex;gap:12px;flex-wrap:wrap}.upload-history .toolbar input{flex:1;min-width:140px}
 
 .bulk-path{overflow-wrap:anywhere}.bulk-errors{max-height:35dvh;overflow:auto}.file-actions .dialog-actions{flex-wrap:wrap}
+
+.share-qr{display:block;width:240px;max-width:100%;height:auto;margin:16px auto;image-rendering:pixelated;background:white}.share-link{font-size:12px}.guest-page{max-width:640px;margin:8vh auto;padding:16px}.guest-page .panel{padding:28px}.guest-page h1{font-size:30px}.guest-page form{margin:20px 0}.guest-page .button{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.upload-history .toolbar{flex-wrap:wrap}
+
+.guest-page .button{color:#fff}.guest-page .button.secondary{color:var(--text)}

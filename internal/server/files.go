@@ -247,7 +247,8 @@ func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		if _, err := s.DB.ExecContext(ctx, "INSERT INTO transfers(user_id,path,direction,size,started,finished,status,error) VALUES(?,?,'download',?,?,?,?,?)", a.ID, name, tracker.bytes, started, time.Now().Unix(), state, message); err != nil {
+		direction, shareID := transferSource(r, "download")
+		if _, err := s.DB.ExecContext(ctx, "INSERT INTO transfers(user_id,path,direction,size,started,finished,status,error,share_id) VALUES(?,?,?,?,?,?,?,?,?)", a.ID, name, direction, tracker.bytes, started, time.Now().Unix(), state, message, shareID); err != nil {
 			s.Log.Error("download history failed", "error", err)
 		}
 	}()
@@ -322,7 +323,8 @@ func (s *Server) streamZip(w http.ResponseWriter, r *http.Request, paths []strin
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		if _, err := s.DB.ExecContext(ctx, "INSERT INTO transfers(user_id,path,direction,size,started,finished,status,error) VALUES(?,?,'download_zip',?,?,?,?,?)", fileActor(r).ID, strings.Join(paths, "; "), tracker.bytes, started, time.Now().Unix(), status, message); err != nil {
+		direction, shareID := transferSource(r, "download_zip")
+		if _, err := s.DB.ExecContext(ctx, "INSERT INTO transfers(user_id,path,direction,size,started,finished,status,error,share_id) VALUES(?,?,?,?,?,?,?,?,?)", fileActor(r).ID, strings.Join(paths, "; "), direction, tracker.bytes, started, time.Now().Unix(), status, message, shareID); err != nil {
 			s.Log.Error("ZIP history failed", "error", err)
 		}
 	}()
@@ -499,7 +501,7 @@ func (s *Server) restoreFile(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) transfers(w http.ResponseWriter, r *http.Request) {
 	a := fileActor(r)
-	rows, e := s.DB.QueryContext(r.Context(), "SELECT t.id,t.user_id,t.path,t.direction,t.size,t.started,COALESCE(t.finished,0),t.status,t.error,COALESCE(u.username,'') FROM transfers t LEFT JOIN users u ON u.id=t.user_id WHERE (? OR t.user_id=?) ORDER BY t.id DESC LIMIT 200", a.Admin, a.ID)
+	rows, e := s.DB.QueryContext(r.Context(), "SELECT t.id,t.user_id,t.path,t.direction,t.size,t.started,COALESCE(t.finished,0),t.status,t.error,COALESCE(u.username,''),t.share_id FROM transfers t LEFT JOIN users u ON u.id=t.user_id WHERE (? OR t.user_id=?) ORDER BY t.id DESC LIMIT 200", a.Admin, a.ID)
 	if e != nil {
 		s.dbError(w, e)
 		return
@@ -508,12 +510,12 @@ func (s *Server) transfers(w http.ResponseWriter, r *http.Request) {
 	items := []map[string]any{}
 	for rows.Next() {
 		var id, user, size, started, finished int64
-		var name, direction, status, message, username string
-		if e = rows.Scan(&id, &user, &name, &direction, &size, &started, &finished, &status, &message, &username); e != nil {
+		var name, direction, status, message, username, shareID string
+		if e = rows.Scan(&id, &user, &name, &direction, &size, &started, &finished, &status, &message, &username, &shareID); e != nil {
 			s.dbError(w, e)
 			return
 		}
-		items = append(items, map[string]any{"id": id, "user_id": user, "username": username, "path": name, "direction": direction, "size": size, "started": started, "finished": finished, "status": status, "error": message})
+		items = append(items, map[string]any{"id": id, "user_id": user, "username": username, "share_id": shareID, "path": name, "direction": direction, "size": size, "started": started, "finished": finished, "status": status, "error": message})
 	}
 	if e = rows.Err(); e != nil {
 		s.dbError(w, e)
