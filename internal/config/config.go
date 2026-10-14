@@ -14,6 +14,9 @@ import (
 )
 
 type Config struct {
+	External struct {
+		Cloudflared string `yaml:"cloudflared"`
+	} `yaml:"external"`
 	Server struct {
 		Host string `yaml:"host"`
 		Port int    `yaml:"port"`
@@ -41,6 +44,7 @@ type Config struct {
 
 func Default() Config {
 	var c Config
+	c.External.Cloudflared = "cloudflared"
 	c.Server.Host = "127.0.0.1"
 	c.Server.Port = 8766
 	c.Storage.Data = "runtime"
@@ -71,7 +75,7 @@ func Load(path string) (Config, error) {
 			return c, fmt.Errorf("конфигурация: %w", err)
 		}
 	}
-	for key, dst := range map[string]*string{"LANBRIDGE_GO_HOST": &c.Server.Host, "LANBRIDGE_GO_DATA": &c.Storage.Data, "LANBRIDGE_GO_ROOT": &c.Storage.Root, "LANBRIDGE_GO_CERT": &c.Server.Cert, "LANBRIDGE_GO_KEY": &c.Server.Key, "LANBRIDGE_GO_LOG_LEVEL": &c.Logs.Level} {
+	for key, dst := range map[string]*string{"LANBRIDGE_GO_CLOUDFLARED": &c.External.Cloudflared, "LANBRIDGE_GO_HOST": &c.Server.Host, "LANBRIDGE_GO_DATA": &c.Storage.Data, "LANBRIDGE_GO_ROOT": &c.Storage.Root, "LANBRIDGE_GO_CERT": &c.Server.Cert, "LANBRIDGE_GO_KEY": &c.Server.Key, "LANBRIDGE_GO_LOG_LEVEL": &c.Logs.Level} {
 		if v, ok := os.LookupEnv(key); ok {
 			*dst = v
 		}
@@ -113,6 +117,12 @@ func Load(path string) (Config, error) {
 		if *p != "" && !filepath.IsAbs(*p) {
 			*p = filepath.Join(base, *p)
 		}
+	}
+	if strings.TrimSpace(c.External.Cloudflared) == "" {
+		return c, errors.New("external.cloudflared не может быть пустым")
+	}
+	if strings.ContainsAny(c.External.Cloudflared, "/\\") && !filepath.IsAbs(c.External.Cloudflared) {
+		c.External.Cloudflared = filepath.Join(base, c.External.Cloudflared)
 	}
 	return c, nil
 }

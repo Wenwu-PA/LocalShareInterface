@@ -25,3 +25,19 @@ func TestRejectUnknownConfiguration(t *testing.T) {
 		t.Fatal("accepted unknown option")
 	}
 }
+
+func TestConnectorExecutablePath(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, "config.yaml")
+	if e := os.WriteFile(name, []byte("external:\n  cloudflared: ./tools/cloudflared.exe\n"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	c, e := Load(name)
+	if e != nil || c.External.Cloudflared != filepath.Join(dir, "tools", "cloudflared.exe") {
+		t.Fatal(c.External.Cloudflared, e)
+	}
+	t.Setenv("LANBRIDGE_GO_CLOUDFLARED", "")
+	if _, e = Load(name); e == nil {
+		t.Fatal("accepted empty executable")
+	}
+}

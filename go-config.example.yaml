@@ -11,6 +11,9 @@ storage:
 security:
   session_hours: 168
   login_attempts: 8
+external:
+  # Executable name on PATH or absolute path. Always off until explicitly started.
+  cloudflared: cloudflared
 logs:
   level: info
   max_mb: 5

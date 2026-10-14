@@ -27,6 +27,7 @@ import (
 	"lanbridge/internal/monitor"
 	"lanbridge/internal/network"
 	"lanbridge/internal/notify"
+	"lanbridge/internal/tunnels"
 )
 
 const sessionCookie = "__Host-lanbridge_go_session"
@@ -44,24 +45,30 @@ type event struct {
 	Data any    `json:"data"`
 }
 type Server struct {
-	DB             *sql.DB
-	Config         config.Config
-	Log            *slog.Logger
-	started        time.Time
-	authGate       chan struct{}
-	diagnosticGate chan struct{}
-	setupMu        sync.Mutex
-	mu             sync.Mutex
-	subscribers    map[chan event]struct{}
-	sequence       uint64
-	Monitors       *monitor.Engine
-	Notifications  *notify.Worker
-	Discovery      *network.Discovery
-	Files          *files.Service
-	zipTickets     map[string]zipTicket
-	shareMu        sync.Mutex
-	shareTickets   map[string]shareTicket
-	guestGate      chan struct{}
+	DB               *sql.DB
+	Config           config.Config
+	Log              *slog.Logger
+	started          time.Time
+	authGate         chan struct{}
+	diagnosticGate   chan struct{}
+	setupMu          sync.Mutex
+	mu               sync.Mutex
+	subscribers      map[chan event]struct{}
+	sequence         uint64
+	Monitors         *monitor.Engine
+	Notifications    *notify.Worker
+	Discovery        *network.Discovery
+	Files            *files.Service
+	zipTickets       map[string]zipTicket
+	shareMu          sync.Mutex
+	shareTickets     map[string]shareTicket
+	guestGate        chan struct{}
+	External         *tunnels.Manager
+	externalHandler  http.Handler
+	externalMu       sync.Mutex
+	externalEvents   []externalEvent
+	externalRequests uint64
+	externalBytes    uint64
 }
 
 func New(db *sql.DB, c config.Config, log *slog.Logger) *Server {
@@ -71,6 +78,7 @@ func New(db *sql.DB, c config.Config, log *slog.Logger) *Server {
 	s.Discovery = network.New(db, log, s.publish)
 	s.diagnosticGate = make(chan struct{}, 2)
 	s.guestGate = make(chan struct{}, 2)
+	s.External = tunnels.New(tunnels.Cloudflare{Executable: c.External.Cloudflared})
 	return s
 }
 func randomToken() string {
@@ -150,6 +158,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 	s.diagnosticRoutes(mux)
 	s.fileRoutes(mux)
 	s.shareRoutes(mux)
+	s.externalRoutes(mux)
 	mux.Handle("GET /api/connection", s.auth(http.HandlerFunc(s.connection), false))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -197,7 +206,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(content)
 	})
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if value := recover(); value != nil {
 				if value == http.ErrAbortHandler {
@@ -222,6 +231,8 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+	s.externalHandler = s.guestGateway(handler)
+	return handler
 }
 
 func (s *Server) identity(r *http.Request) (User, string, error) {
