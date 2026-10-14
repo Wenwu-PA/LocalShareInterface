@@ -186,6 +186,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 	mux.Handle("PUT /api/settings", s.auth(http.HandlerFunc(s.putSettings), true))
 	mux.Handle("GET /api/events", s.auth(http.HandlerFunc(s.events), false))
 	mux.Handle("GET /api/users", s.auth(http.HandlerFunc(s.users), true))
+	mux.Handle("PATCH /api/users/{id}", s.auth(http.HandlerFunc(s.updateAccount), false))
 	mux.Handle("POST /api/users", s.auth(http.HandlerFunc(s.createUser), true))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		problem(w, 404, "not_found", "Маршрут не найден")
