@@ -19,5 +19,6 @@ logs:
   max_mb: 5
   backups: 3
 database:
+  max_mb: 512
   backups: 3
   backup_hours: 24

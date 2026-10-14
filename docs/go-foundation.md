@@ -35,7 +35,7 @@ Python-версия продолжает запускаться через `pyth
 | server.port | 8766 | HTTPS-порт; не конфликтует с Python 8765 |
 | server.cert / server.key | пусто | Собственные PEM; при пустых значениях создаётся пара в runtime/tls |
 | storage.data | runtime | БД, TLS, резервные копии, журналы |
-| storage.root | runtime/files | Будущее файловое хранилище; файловый API ещё не подключён |
+| storage.root | runtime/files | Корень файлового хранилища |
 | security.session_hours | 168 | Срок сессии, 1–720 часов |
 | security.login_attempts | 8 | Лимит неудачных входов с одного IP за 15 минут |
 | logs.level | info | debug / info / warn / error |
@@ -43,10 +43,13 @@ Python-версия продолжает запускаться через `pyth
 | logs.backups | 3 | Количество ротированных журналов |
 | database.backups | 3 | Число согласованных резервных копий SQLite |
 | database.backup_hours | 24 | Период резервирования; копия также создаётся при запуске |
+| database.max_mb | 512 | Максимальный размер основной SQLite, 16–16384 МиБ; WAL и копии считаются отдельно |
+| external.cloudflared | cloudflared | Имя в PATH или путь к бинарнику; туннель включается только явно |
 
 Переменные процесса переопределяют YAML: `LANBRIDGE_GO_CONFIG`, `LANBRIDGE_GO_HOST`,
 `LANBRIDGE_GO_PORT`, `LANBRIDGE_GO_DATA`, `LANBRIDGE_GO_ROOT`, `LANBRIDGE_GO_CERT`,
-`LANBRIDGE_GO_KEY`, `LANBRIDGE_GO_LOG_LEVEL`. `.env` пока не загружается автоматически.
+`LANBRIDGE_GO_KEY`, `LANBRIDGE_GO_LOG_LEVEL`, `LANBRIDGE_GO_CLOUDFLARED`.
+Файл `.env.go` рядом с конфигурацией загружается без замены уже заданных переменных процесса.
 Префикс GO изолирует новую версию от переменных работающего Python-сервера.
 
 ## Реализовано
@@ -134,7 +137,7 @@ Cloudflare Quick Tunnel реализован и проверен локальн�
 [go-external.md](go-external.md). Реальная публикация, NetBird и SSH не проверены.
 Нет установки как службы. Linux amd64 скомпилирован с Windows, но запуск на Linux не проверен.
 Повреждённая БД обнаруживается и запуск останавливается; автоматическое восстановление
-из копии пока не реализовано. Лимит размера БД также впереди. Файловые квоты и хранилище описаны в
+из копии пока не реализовано. Ограничение БД: [go-database.md](go-database.md). Файловые квоты и хранилище описаны в
 [go-files.md](go-files.md).
 
 50 и 100 HTTP-мониторов проверены короткими прогонами; замеры в

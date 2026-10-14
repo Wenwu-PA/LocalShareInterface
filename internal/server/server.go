@@ -27,6 +27,7 @@ import (
 	"lanbridge/internal/monitor"
 	"lanbridge/internal/network"
 	"lanbridge/internal/notify"
+	"lanbridge/internal/store"
 	"lanbridge/internal/tunnels"
 )
 
@@ -143,6 +144,10 @@ func clientIP(r *http.Request) string {
 }
 func (s *Server) dbError(w http.ResponseWriter, err error) {
 	s.Log.Error("database operation failed", "error", err)
+	if store.IsFull(err) {
+		problem(w, 507, "database_full", "SQLite достигла лимита database.max_mb или на диске нет места. Освободите место либо увеличьте лимит и перезапустите сервер.")
+		return
+	}
 	problem(w, 500, "database", "Операция не выполнена. Проверьте журнал сервера.")
 }
 func (s *Server) audit(ctx context.Context, id any, action, detail string) error {

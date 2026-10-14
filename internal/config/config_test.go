@@ -41,3 +41,13 @@ func TestConnectorExecutablePath(t *testing.T) {
 		t.Fatal("accepted empty executable")
 	}
 }
+
+func TestRejectDatabaseSizeLimit(t *testing.T) {
+	for _, value := range []string{"0", "15", "16385"} {
+		name := filepath.Join(t.TempDir(), "config.yaml")
+		os.WriteFile(name, []byte("database:\n  max_mb: "+value+"\n"), 0600)
+		if _, e := Load(name); e == nil {
+			t.Fatal(value)
+		}
+	}
+}
