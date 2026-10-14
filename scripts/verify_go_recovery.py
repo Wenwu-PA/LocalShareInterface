@@ -71,13 +71,29 @@ def main():
                     page.locator('[name=password]').fill(password)
                     page.get_by_role('button', name='Войти', exact=True).click()
                     page.locator('.workspace').wait_for()
+                    page.goto(base+'/#settings')
+                    page.get_by_role('button',name='Сменить мой пароль',exact=True).click()
+                    dialog=page.get_by_role('dialog')
+                    expect(dialog.locator('[name=role]')).to_have_value('admin')
+                    dialog.get_by_label('Ваш текущий пароль',exact=True).fill(password)
+                    changed=secrets.token_urlsafe(24)
+                    dialog.locator('[name=password]').fill(changed)
+                    dialog.get_by_label('Повторите новый пароль',exact=True).fill(changed)
+                    page.set_viewport_size({'width':390,'height':900})
+                    assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth')
+                    dialog.get_by_role('button',name='Сохранить учётную запись',exact=True).click()
+                    page.get_by_role('button',name='Войти',exact=True).wait_for()
+                    page.locator('[name=username]').fill('recoveryadmin')
+                    page.locator('[name=password]').fill(changed)
+                    page.get_by_role('button',name='Войти',exact=True).click()
+                    page.locator('.workspace').wait_for()
                     assert not errors, errors
                     browser.close(); stop()
                     with sqlite3.connect(dbpath) as db:
                         assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
                         assert db.execute("SELECT access FROM file_acl WHERE path='.'").fetchone()[0] == 'admin'
                     db.close()
-                    print(json.dumps({'result':'PASS','fallback_backup':True,'original_preserved':True,'review_gate':True,'loopback_only':True,'session_revoked':True,'browser_errors':errors}))
+                    print(json.dumps({'result':'PASS','fallback_backup':True,'original_preserved':True,'review_gate':True,'loopback_only':True,'session_revoked':True,'password_changed_in_browser':True,'browser_errors':errors}))
             finally: stop()
 
 if __name__ == '__main__': main()
