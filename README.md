@@ -402,3 +402,5 @@ lanbridge/
 Лицензия — [MIT](LICENSE). Проект использует FastAPI, Uvicorn, Starlette, Pydantic, SQLite, psutil, argon2-cffi, cryptography, PyYAML и qrcode; Ruff и Playwright помогают проверять код и интерфейс. Их лицензии сохраняются у соответствующих проектов.
 
 Ограничения очереди и история доставки Go-версии: [уведомления](docs/go-notifications.md#ограничения-очереди).
+
+Восстановление Go-БД и локальный запуск для проверки прав: [инструкция](docs/go-database.md#восстановление-при-повреждении).

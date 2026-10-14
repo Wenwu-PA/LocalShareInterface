@@ -38,6 +38,7 @@ func run() error {
 		debug.SetMemoryLimit(40 << 20)
 	}
 	path := flag.String("config", "config.go.yaml", "Путь к YAML новой Go-версии")
+	acceptRecovery := flag.Bool("accept-database-recovery", false, "Подтвердить восстановление БД и запустить только на 127.0.0.1 для проверки прав")
 	version := flag.Bool("version", false, "Версия")
 	flag.Parse()
 	if *version {
@@ -62,9 +63,42 @@ func run() error {
 	var level slog.Level
 	_ = level.UnmarshalText([]byte(strings.ToUpper(cfg.Logs.Level)))
 	logger := slog.New(slog.NewJSONHandler(io.MultiWriter(os.Stderr, logFile), &slog.HandlerOptions{Level: level}))
-	db, err := store.OpenBounded(filepath.Join(cfg.Storage.Data, "lanbridge-go.sqlite3"), int64(cfg.Database.MaxMB)<<20)
+	dbPath := filepath.Join(cfg.Storage.Data, "lanbridge-go.sqlite3")
+	pending, err := store.RecoveryStatus(dbPath)
 	if err != nil {
 		return err
+	}
+	if pending != nil {
+		if !pending.Ready {
+			return fmt.Errorf("восстановление прервано; запуск заблокирован. Проверьте %s и журнал %s.recovery.json", pending.Archive, dbPath)
+		}
+		if !*acceptRecovery {
+			return fmt.Errorf("БД восстановлена из %s; архив: %s. Проверьте права/пароли из старой копии. Для локального запуска добавьте -accept-database-recovery", pending.Backup, pending.Archive)
+		}
+		if _, err = os.Stat(dbPath); err != nil {
+			return fmt.Errorf("восстановленная БД отсутствует: %w", err)
+		}
+	} else if *acceptRecovery {
+		return fmt.Errorf("нет восстановления, ожидающего подтверждения")
+	}
+	db, err := store.OpenBounded(dbPath, int64(cfg.Database.MaxMB)<<20)
+	if err != nil {
+		if !store.IsCorrupt(err) || pending != nil {
+			return err
+		}
+		recovery, recoveryErr := store.RecoverLatest(dbPath, filepath.Join(cfg.Storage.Data, "backups"), int64(cfg.Database.MaxMB)<<20)
+		if recoveryErr != nil {
+			return fmt.Errorf("%w; восстановление: %v", err, recoveryErr)
+		}
+		return fmt.Errorf("повреждённая БД сохранена в %s; восстановлена копия %s. Сессии и ссылки отозваны, доступ к файлам ограничен администратором. Проверьте прежние пароли/роли; для локального запуска добавьте -accept-database-recovery", recovery.Archive, recovery.Backup)
+	}
+	if pending != nil {
+		if err = os.Remove(dbPath + ".recovery.json"); err != nil {
+			db.Close()
+			return err
+		}
+		cfg.Server.Host = "127.0.0.1"
+		logger.Warn("database recovery accepted; listening on loopback only for access review", "backup", pending.Backup, "archive", pending.Archive)
 	}
 	defer db.Close()
 	if err = store.Backup(db, filepath.Join(cfg.Storage.Data, "backups"), cfg.Database.Backups); err != nil {

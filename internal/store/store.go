@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,7 +47,7 @@ func OpenBounded(path string, maxBytes int64) (*sql.DB, error) {
 		return fail(fmt.Errorf("проверка SQLite: %w", err))
 	}
 	if integrity != "ok" {
-		return fail(errors.New("SQLite повреждена; сохраните файлы БД и восстановите проверенную резервную копию"))
+		return fail(ErrCorrupt)
 	}
 	var version int
 	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
