@@ -37,6 +37,7 @@ type Config struct {
 		Backups int    `yaml:"backups"`
 	} `yaml:"logs"`
 	Database struct {
+		MaxMB       int `yaml:"max_mb"`
 		Backups     int `yaml:"backups"`
 		BackupHours int `yaml:"backup_hours"`
 	} `yaml:"database"`
@@ -55,6 +56,7 @@ func Default() Config {
 	c.Logs.MaxMB = 5
 	c.Logs.Backups = 3
 	c.Database.Backups = 3
+	c.Database.MaxMB = 512
 	c.Database.BackupHours = 24
 	return c
 }
@@ -103,6 +105,9 @@ func Load(path string) (Config, error) {
 	}
 	if c.Database.Backups < 1 || c.Database.Backups > 10 || c.Database.BackupHours < 1 || c.Database.BackupHours > 168 {
 		return c, errors.New("недопустимые параметры резервных копий")
+	}
+	if c.Database.MaxMB < 16 || c.Database.MaxMB > 16384 {
+		return c, errors.New("database.max_mb должен быть от 16 до 16384 МиБ")
 	}
 	switch c.Logs.Level {
 	case "debug", "info", "warn", "error":

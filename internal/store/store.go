@@ -22,20 +22,26 @@ CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
 PRAGMA user_version=1;`
 
 func Open(path string) (*sql.DB, error) {
+	return OpenBounded(path, 0)
+}
+
+func OpenBounded(path string, maxBytes int64) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", path)
+	dsn, pages, err := databaseDSN(path, maxBytes)
+	if err != nil {
+		return nil, err
+	}
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	fail := func(e error) (*sql.DB, error) { db.Close(); return nil, e }
-	for _, stmt := range []string{"PRAGMA busy_timeout=5000", "PRAGMA foreign_keys=ON", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=NORMAL", "PRAGMA wal_autocheckpoint=1000"} {
-		if _, err = db.Exec(stmt); err != nil {
-			return fail(err)
-		}
+	if err = checkPageLimit(db, pages); err != nil {
+		return fail(err)
 	}
 	var integrity string
 	if err = db.QueryRow("PRAGMA quick_check").Scan(&integrity); err != nil {

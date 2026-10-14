@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"lanbridge/internal/files"
+	"lanbridge/internal/store"
 	"mime"
 	"net/http"
 	"os"
@@ -25,6 +26,10 @@ func fileActor(r *http.Request) files.Actor {
 	return files.Actor{ID: u.ID, Admin: u.Role == "admin"}
 }
 func (s *Server) fileError(w http.ResponseWriter, e error) {
+	if store.IsFull(e) {
+		s.dbError(w, e)
+		return
+	}
 	switch {
 	case errors.Is(e, files.ErrAccess):
 		problem(w, 403, "access", e.Error())

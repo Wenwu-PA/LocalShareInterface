@@ -62,7 +62,7 @@ func run() error {
 	var level slog.Level
 	_ = level.UnmarshalText([]byte(strings.ToUpper(cfg.Logs.Level)))
 	logger := slog.New(slog.NewJSONHandler(io.MultiWriter(os.Stderr, logFile), &slog.HandlerOptions{Level: level}))
-	db, err := store.Open(filepath.Join(cfg.Storage.Data, "lanbridge-go.sqlite3"))
+	db, err := store.OpenBounded(filepath.Join(cfg.Storage.Data, "lanbridge-go.sqlite3"), int64(cfg.Database.MaxMB)<<20)
 	if err != nil {
 		return err
 	}
