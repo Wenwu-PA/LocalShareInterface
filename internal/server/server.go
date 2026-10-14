@@ -46,6 +46,8 @@ type event struct {
 	Data any    `json:"data"`
 }
 type Server struct {
+	resourceMu       sync.Mutex
+	resourceLevels   map[string]string
 	DB               *sql.DB
 	Config           config.Config
 	Log              *slog.Logger
@@ -159,6 +161,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	s.monitorRoutes(mux)
 	s.notificationRoutes(mux)
+	mux.Handle("GET /api/resources", s.auth(http.HandlerFunc(s.getResources), true))
 	s.deviceRoutes(mux)
 	s.diagnosticRoutes(mux)
 	s.fileRoutes(mux)

@@ -126,6 +126,7 @@ func run() error {
 	app.Notifications.Start(ctx)
 	app.Discovery.Start(ctx)
 	app.Files.Start(ctx)
+	app.CheckResources(ctx)
 	var tasks sync.WaitGroup
 	tasks.Add(1)
 	go func() {
@@ -144,6 +145,7 @@ func run() error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				app.CheckResources(ctx)
 				if e := monitor.Compact(ctx, db, time.Now()); e != nil && ctx.Err() == nil {
 					logger.Error("monitor compaction failed", "error", e)
 				}

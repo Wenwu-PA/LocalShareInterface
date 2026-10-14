@@ -202,9 +202,21 @@ def main():
      page.set_viewport_size({'width':1440,'height':1000})
      page.get_by_label('Поиск файлов').fill('sample');page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for()
      page.get_by_label('Поиск файлов').fill('');page.get_by_role('button',name='▱ load-0000',exact=True).wait_for()
+     # Real resource probe with an artificial reserve, without filling the disk.
+     resource_settings=page.evaluate("""async()=>{const s=await(await fetch('/api/status')).json();const old=(await(await fetch('/api/files/storage')).json()).settings;const r=await fetch('/api/files/storage',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify({...old,critical_free:1000000000000000})});if(!r.ok)throw new Error(await r.text());return old}""")
+     page.goto(base+'/#overview');page.reload()
+     page.get_by_text('Мало места в хранилище.',exact=False).wait_for()
+     page.get_by_role('heading',name='ПАМЯТЬ GO',exact=True).wait_for()
+     for width,device in ((1440,'desktop'),(390,'mobile')):
+      page.set_viewport_size({'width':width,'height':1000})
+      assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth')
+      page.screenshot(path=str(output/f'resources-{device}.png'),full_page=True)
+     page.evaluate("""async settings=>{const s=await(await fetch('/api/status')).json();const r=await fetch('/api/files/storage',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify(settings)});if(!r.ok)throw new Error(await r.text())}""",resource_settings)
+     page.reload();page.get_by_role('heading',name='ПАМЯТЬ GO',exact=True).wait_for()
+     assert page.get_by_text('Мало места в хранилище.',exact=False).count()==0
      assert not errors,errors
      browser.close()
-     print(json.dumps({'result':'PASS','upload_bytes':len(content),'virtual_items':1104,'max_rendered_rows':18,'screenshots':4,'browser_errors':errors}))
+     print(json.dumps({'result':'PASS','upload_bytes':len(content),'virtual_items':1104,'max_rendered_rows':18,'screenshots':6,'resource_warning_and_recovery':True,'browser_errors':errors}))
    finally:
     process.terminate();process.wait(timeout=15)
 if __name__=='__main__':main()

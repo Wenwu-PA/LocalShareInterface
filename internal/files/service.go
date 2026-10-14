@@ -75,7 +75,8 @@ func ID() string {
 	}
 	return hex.EncodeToString(b)
 }
-func (s *Service) Space() (uint64, uint64, error) { return freeSpace(s.Root.Name()) }
+func DiskSpace(directory string) (uint64, uint64, error) { return freeSpace(directory) }
+func (s *Service) Space() (uint64, uint64, error)        { return freeSpace(s.Root.Name()) }
 func (s *Service) Close() {
 	if s.cancel != nil {
 		s.cancel()
