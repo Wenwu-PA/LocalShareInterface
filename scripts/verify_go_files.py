@@ -127,6 +127,16 @@ def main():
      with page.expect_file_chooser() as chooser:page.get_by_role('button',name='Выбрать файл',exact=True).click()
      chooser.value.set_files({"name":"resume.txt","mimeType":"text/plain","buffer":b'resume-content'})
      page.get_by_role('link',name='▤ resume.txt',exact=True).wait_for(timeout=30000)
+     for file_view in ('list','grid'):
+      page.get_by_label('Вид файлов',exact=True).select_option(file_view)
+      page.get_by_label('Выбрать copy.txt',exact=True).check()
+      page.get_by_label('Выбрать sample.txt',exact=True).click(modifiers=['Shift'])
+      for name in ('copy.txt','resume.txt','sample.txt'):
+       assert page.get_by_label('Выбрать '+name,exact=True).is_checked()
+      page.get_by_label('Выбрать copy.txt',exact=True).click(modifiers=['Shift'])
+      for name in ('copy.txt','resume.txt','sample.txt'):
+       assert not page.get_by_label('Выбрать '+name,exact=True).is_checked()
+     page.get_by_label('Вид файлов',exact=True).select_option('list')
      output=ROOT/'docs/previews';output.mkdir(exist_ok=True)
      for theme in ('dark','light'):
       page.evaluate('(t)=>document.documentElement.dataset.theme=t',theme)
