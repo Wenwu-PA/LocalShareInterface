@@ -166,3 +166,38 @@ func TestGuestValidationAndOwnership(t *testing.T) {
 	c.db.Exec("INSERT INTO file_acl(path,access) VALUES('folder','read')")
 	g.call("POST", "/api/shares", map[string]any{"path": "folder", "ttl_seconds": 3600}, 403)
 }
+
+func TestGuestHistoryAndExpiredTicket(t *testing.T) {
+	c, g := shareFixture(t)
+	g.call("GET", "/api/connection", nil, 401)
+	connection := c.call("GET", "/api/connection", nil, 200)
+	if connection["loopback_only"] != true {
+		t.Fatal(connection)
+	}
+	v := makeShare(c, "folder/hello.txt", "", 0)
+	ep := guestEndpoint(v)
+	ticket := g.call("POST", ep+"/ticket", map[string]any{}, 201)["url"].(string)
+	c.server.shareMu.Lock()
+	for key, value := range c.server.shareTickets {
+		value.expires = time.Now().Add(-time.Second)
+		c.server.shareTickets[key] = value
+	}
+	c.server.shareMu.Unlock()
+	fetchShare(t, g, ticket, 404)
+	ticket = g.call("POST", ep+"/ticket", map[string]any{}, 201)["url"].(string)
+	fetchShare(t, g, ticket, 200)
+	var direction, id string
+	var size int64
+	var err error
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		err = c.db.QueryRow("SELECT direction,share_id,size FROM transfers ORDER BY id DESC LIMIT 1").Scan(&direction, &id, &size)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err != nil || direction != "guest_download" || id != v["id"] || size != 13 {
+		t.Fatal(direction, id, size, err)
+	}
+}
