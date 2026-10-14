@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {selectFileRange as select} from './file-selection.js';
+import {selectFileRange as select,topLevelSelection} from './file-selection.js';
 const paths=['a','b','c','d'];
 test('plain click adds without clearing other selections',()=>assert.deepEqual(select(['a'],paths,'a','c',true,false).selected,['a','c']));
 test('forward range includes both ends',()=>assert.deepEqual(select(['a'],paths,'a','c',true,true).selected,['a','b','c']));
@@ -8,3 +8,5 @@ test('reverse range and removal',()=>assert.deepEqual(select(paths,paths,'d','b'
 test('missing anchor becomes a single selection',()=>assert.deepEqual(select([],paths,'gone','c',true,true).selected,['c']));
 test('range is bounded',()=>assert.deepEqual(select([],paths,'a','d',true,true,2),{selected:['a','b'],limited:true}));
 test('invisible rows remain selectable',()=>{const all=Array.from({length:1100},(_,i)=>String(i));const result=select([],all,'0','1099',true,true);assert.equal(result.selected.length,1000);assert.equal(result.limited,true)});
+
+test('bulk operations omit nested selections and duplicates',()=>assert.deepEqual(topLevelSelection(['a/file','a','ab/file','a','a/deep/file']),['a','ab/file']));

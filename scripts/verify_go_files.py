@@ -116,6 +116,18 @@ def main():
      page.get_by_role('button',name='Корзина',exact=True).click();page.get_by_role('button',name='Восстановить',exact=True).click()
      page.locator('dialog').get_by_text('Корзина пуста.',exact=True).wait_for();page.get_by_label('Закрыть',exact=True).click()
      page.get_by_role('link',name='▤ copy.txt',exact=True).wait_for()
+     # Bulk move two existing files, then restore both to keep later scenarios intact.
+     for name in ('copy.txt','sample.txt'):page.get_by_label('Выбрать '+name,exact=True).check()
+     page.get_by_role('button',name='Выбранное в корзину',exact=True).click()
+     page.get_by_role('button',name='Перенести в корзину',exact=True).click()
+     page.get_by_text('Перенесено: 2. Ошибок: 0. Не обработано: 0.',exact=True).wait_for()
+     page.get_by_role('button',name='Готово',exact=True).click()
+     page.get_by_role('button',name='Корзина',exact=True).click()
+     for remaining in (2,1):
+      page.wait_for_function('(n)=>document.querySelectorAll("dialog .upload-row").length===n',arg=remaining)
+      page.get_by_role('button',name='Восстановить',exact=True).first.click()
+     page.locator('dialog').get_by_text('Корзина пуста.',exact=True).wait_for()
+     page.get_by_label('Закрыть',exact=True).click()
      # A partially uploaded file survives a reload and requires the original hash.
      page.evaluate("""async()=>{const s=await(await fetch('/api/status')).json();const raw=new TextEncoder().encode('resume-content');const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',raw)),n=>n.toString(16).padStart(2,'0')).join('');const u=await(await fetch('/api/uploads',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify({path:'resume.txt',size:raw.length,sha256:hash,conflict:'skip'})})).json();const r=await fetch('/api/uploads/'+u.id,{method:'PATCH',headers:{'X-CSRF-Token':s.csrf,'Upload-Offset':'0'},body:raw.slice(0,4)});if(!r.ok)throw new Error(await r.text())}""")
      page.reload();page.get_by_role('button',name='Выбрать файл',exact=True).wait_for()

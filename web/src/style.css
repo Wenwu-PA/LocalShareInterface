@@ -30,3 +30,5 @@
 @media(max-width:700px){.file-browser-layout .file-row:not(.file-tile),.file-browser-layout .file-list-head{grid-template-columns:minmax(140px,1fr) 76px 40px}.folder-tree{padding:12px}}
 
 .upload-history summary{cursor:pointer;font-weight:600;font-size:16px;min-height:32px}.upload-history .toolbar{display:flex;gap:12px;flex-wrap:wrap}.upload-history .toolbar input{flex:1;min-width:140px}
+
+.bulk-path{overflow-wrap:anywhere}.bulk-errors{max-height:35dvh;overflow:auto}.file-actions .dialog-actions{flex-wrap:wrap}
