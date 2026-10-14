@@ -10,3 +10,8 @@ export function selectFileRange(previous, paths, anchor, target, checked, shift,
  }
  return {selected:[...selected],limited};
 }
+
+export function topLevelSelection(paths) {
+ const chosen=new Set(paths);
+ return [...chosen].filter(path=>{let slash=path.lastIndexOf('/');while(slash>=0){if(chosen.has(path.slice(0,slash)))return false;slash=path.lastIndexOf('/',slash-1)}return true});
+}
