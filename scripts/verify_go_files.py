@@ -64,13 +64,13 @@ def main():
      content=b'hello file storage'*100000
      page.locator('input[type=file][multiple]:not([webkitdirectory])').set_input_files({"name":"sample.txt","mimeType":"text/plain","buffer":content})
      page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for(timeout=30000)
-     page.locator('.upload-history summary').click()
+     page.locator('summary',has_text='История передач').click()
      page.locator('.upload-history strong').get_by_text('sample.txt',exact=True).wait_for()
      assert 'Средняя скорость:' in page.locator('.transfer-timing').first.inner_text()
      page.get_by_label('Поиск в истории передач',exact=True).fill('несуществующий')
      page.locator('.upload-history').get_by_text('Ничего не найдено.',exact=True).wait_for()
      page.get_by_label('Поиск в истории передач',exact=True).fill('')
-     page.locator('.upload-history summary').click()
+     page.locator('summary',has_text='История передач').click()
 
      page.get_by_label('Действия: sample.txt',exact=True).click()
      page.get_by_role('button',name='Предпросмотр',exact=True).click()
@@ -80,9 +80,9 @@ def main():
      page.get_by_label('Закрыть предпросмотр',exact=True).click()
      with page.expect_download() as downloading:page.get_by_role('link',name='▤ sample.txt',exact=True).click()
      downloaded=downloading.value;assert Path(downloaded.path()).read_bytes()==content
-     page.locator('.upload-history summary').click()
+     page.locator('summary',has_text='История передач').click()
      page.locator('.upload-history .upload-row').filter(has_text='Скачивание').first.wait_for()
-     page.locator('.upload-history summary').click()
+     page.locator('summary',has_text='История передач').click()
 
      page.get_by_role('button',name='Выбрать загруженные',exact=True).click()
      assert page.get_by_label('Выбрать sample.txt',exact=True).is_checked()
@@ -94,7 +94,7 @@ def main():
      with page.expect_download() as downloading:page.get_by_role('button',name='Скачать ZIP',exact=True).click()
      import zipfile
      with zipfile.ZipFile(downloading.value.path()) as archive:assert archive.read('sample.txt')==content
-     page.locator('.upload-history summary').click()
+     page.locator('summary',has_text='История передач').click()
      page.locator('.upload-history .upload-row').filter(has_text='Скачивание ZIP').first.wait_for()
      page.get_by_label('Тип передачи',exact=True).select_option('download_zip')
      assert page.locator('.upload-history .upload-row').count()==1
@@ -107,7 +107,7 @@ def main():
      page.get_by_label('Поиск в истории передач',exact=True).fill('')
      page.get_by_label('Тип передачи',exact=True).select_option('')
 
-     page.locator('.upload-history summary').click()
+     page.locator('summary',has_text='История передач').click()
 
      page.get_by_label('Действия: sample.txt',exact=True).click();page.get_by_role('button',name='Копировать',exact=True).click()
      page.locator('dialog input[name=name]').fill('copy.txt');page.get_by_role('button',name='Применить',exact=True).click()

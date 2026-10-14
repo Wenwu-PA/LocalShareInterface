@@ -1,10 +1,43 @@
 package store
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestUpgradeFileDatabaseToShares(t *testing.T) {
+	name := filepath.Join(t.TempDir(), "previous.sqlite3")
+	db, err := sql.Open("sqlite", name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, migration := range []string{schema, monitorSchema, notificationSchema, deviceSchema, fileSchema} {
+		if _, err = db.Exec(migration); err != nil {
+			db.Close()
+			t.Fatal(err)
+		}
+	}
+	if _, err = db.Exec("INSERT INTO transfers(user_id,path,direction,size,started,status) VALUES(1,'existing.txt','download',42,1,'complete')"); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	db, err = Open(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var version int
+	var shareID string
+	var size int
+	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 6 {
+		t.Fatal(version, err)
+	}
+	if err = db.QueryRow("SELECT size,share_id FROM transfers WHERE path='existing.txt'").Scan(&size, &shareID); err != nil || size != 42 || shareID != "" {
+		t.Fatal(size, shareID, err)
+	}
+}
 
 func TestMigrationBackupReopen(t *testing.T) {
 	dir := t.TempDir()
