@@ -1,0 +1,6 @@
+server:
+  host: 127.0.0.1
+  port: 8766
+storage:
+  data: /var/lib/lanbridge
+  root: /srv/lanbridge
