@@ -30,5 +30,5 @@ func (s *Server) connection(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sort.Strings(addresses)
-	jsonResponse(w, 200, map[string]any{"addresses": addresses, "loopback_only": loopback})
+	jsonResponse(w, 200, map[string]any{"addresses": addresses, "loopback_only": loopback, "public_url": s.External.Status().URL})
 }

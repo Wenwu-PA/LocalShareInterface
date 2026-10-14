@@ -78,6 +78,7 @@ func run() error {
 		}
 	}
 	app := server.New(db, cfg, logger)
+	defer app.External.Close()
 	if err = app.InitFiles(); err != nil {
 		return err
 	}
@@ -135,6 +136,9 @@ func run() error {
 	case <-ctx.Done():
 	}
 	app.CloseStreams()
+	if e := app.External.Close(); e != nil {
+		logger.Error("external gateway stopped", "error", e)
+	}
 	shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 	if e := srv.Shutdown(shutdown); e != nil {
