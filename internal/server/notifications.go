@@ -152,8 +152,14 @@ func (s *Server) testChannel(w http.ResponseWriter, r *http.Request) {
 		problem(w, 409, "channel", "Сначала включите канал")
 		return
 	}
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
+		s.dbError(w, e)
+		return
+	}
+	defer tx.Rollback()
 	var pending int
-	if e := s.DB.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM notification_queue WHERE channel_id=? AND kind='test' AND status='pending'", body.ID).Scan(&pending); e != nil {
+	if e = tx.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM notification_queue WHERE channel_id=? AND kind='test' AND status='pending'", body.ID).Scan(&pending); e != nil {
 		s.dbError(w, e)
 		return
 	}
@@ -162,8 +168,11 @@ func (s *Server) testChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	event := notify.Event{ID: time.Now().UnixNano(), Kind: "test", Name: "LANBridge", Message: "Проверка канала уведомлений", At: time.Now().Unix()}
-	payload, _ := json.Marshal(event)
-	if _, e := s.DB.ExecContext(r.Context(), "INSERT INTO notification_queue(channel_id,event_id,kind,payload,next_at,created_at) VALUES(?,?,'test',?,?,?)", body.ID, event.ID, string(payload), event.At, event.At); e != nil {
+	if e = notify.Queue(r.Context(), tx, body.ID, event); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if e = tx.Commit(); e != nil {
 		s.dbError(w, e)
 		return
 	}

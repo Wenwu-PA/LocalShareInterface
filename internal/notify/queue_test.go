@@ -144,7 +144,7 @@ func TestLargePendingQueueDoesNotRejectIncident(t *testing.T) {
 	if _, e = db.Exec("INSERT INTO notification_channels(config) VALUES(?)", string(raw)); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = db.Exec(`WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<10000) INSERT INTO notification_queue(channel_id,event_id,kind,payload,next_at,created_at) SELECT 1,x,'test','{}',0,0 FROM n`); e != nil {
+	if _, e = db.Exec(`WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<10000) INSERT INTO notification_queue(channel_id,event_id,kind,payload,next_at,created_at) SELECT 1,x,'test','{}',0,unixepoch() FROM n`); e != nil {
 		t.Fatal(e)
 	}
 	tx, e := db.Begin()
@@ -161,5 +161,75 @@ func TestLargePendingQueueDoesNotRejectIncident(t *testing.T) {
 	var count int
 	if e = db.QueryRow("SELECT COUNT(*) FROM notification_queue").Scan(&count); e != nil || count != 10001 {
 		t.Fatal(e, count)
+	}
+	var status string
+	if e = db.QueryRow("SELECT status FROM notification_queue ORDER BY id LIMIT 1").Scan(&status); e != nil || status != "dropped" {
+		t.Fatal(status, e)
+	}
+	if e = db.QueryRow("SELECT COUNT(*) FROM notification_queue WHERE status='pending'").Scan(&count); e != nil || count != PendingLimit {
+		t.Fatal(count, e)
+	}
+
+}
+
+func TestQueueBoundsAndIdleRetention(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "bounded.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err = db.Exec(`INSERT INTO notification_channels(config) VALUES('{"enabled":false}')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<20005) INSERT INTO notification_queue(channel_id,event_id,kind,payload,status,next_at,created_at,delivered_at) SELECT 1,x,'test','{}',CASE WHEN x<=10003 THEN 'pending' ELSE 'delivered' END,0,unixepoch(),CASE WHEN x>10003 THEN unixepoch() ELSE NULL END FROM n`); err != nil {
+		t.Fatal(err)
+	}
+	w := New(db, slog.New(slog.NewTextHandler(io.Discard, nil)), func(string, any) {})
+	// Maintenance runs even when all channels are disabled and no job is due.
+	if err = w.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for status, want := range map[string]int{"pending": PendingLimit, "delivered": HistoryLimit} {
+		var got int
+		if err = db.QueryRow("SELECT COUNT(*) FROM notification_queue WHERE status=?", status).Scan(&got); err != nil || got != want {
+			t.Fatal(status, got, err)
+		}
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	event := Event{ID: 30000, Kind: "down", At: time.Now().Unix()}
+	if err = Queue(context.Background(), tx, 1, event); err != nil {
+		t.Fatal(err)
+	}
+	// Duplicate enqueue does not evict another pending job.
+	if err = Queue(context.Background(), tx, 1, event); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	var pending, dropped int
+	if err = db.QueryRow("SELECT COUNT(*) FROM notification_queue WHERE status='pending'").Scan(&pending); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRow("SELECT COUNT(*) FROM notification_queue WHERE status='dropped'").Scan(&dropped); err != nil {
+		t.Fatal(err)
+	}
+	if pending != PendingLimit || dropped != 0 {
+		t.Fatal(pending, dropped)
+	} // Older than retained completed history.
+	if _, err = db.Exec("UPDATE notification_queue SET delivered_at=1 WHERE status='delivered'"); err != nil {
+		t.Fatal(err)
+	}
+	w.nextMaintenance = time.Time{}
+	if err = w.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var total int
+	if err = db.QueryRow("SELECT COUNT(*) FROM notification_queue").Scan(&total); err != nil || total != PendingLimit {
+		t.Fatal(total, err)
 	}
 }

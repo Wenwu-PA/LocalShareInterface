@@ -39,7 +39,6 @@ func Enqueue(ctx context.Context, tx *sql.Tx, event Event) error {
 		return e
 	}
 	rows.Close()
-	payload, _ := json.Marshal(event)
 	for _, c := range channels {
 		var previous int64
 		e = tx.QueryRowContext(ctx, "SELECT last_at FROM notification_cooldown WHERE channel_id=? AND monitor_id=? AND kind=?", c.ID, event.MonitorID, event.Kind).Scan(&previous)
@@ -49,7 +48,7 @@ func Enqueue(ctx context.Context, tx *sql.Tx, event Event) error {
 		if event.At-previous < int64(c.Cooldown) {
 			continue
 		}
-		if _, e = tx.ExecContext(ctx, "INSERT OR IGNORE INTO notification_queue(channel_id,event_id,kind,payload,next_at,created_at) VALUES(?,?,?,?,?,?)", c.ID, event.ID, event.Kind, string(payload), event.At, event.At); e != nil {
+		if e = Queue(ctx, tx, c.ID, event); e != nil {
 			return e
 		}
 		if _, e = tx.ExecContext(ctx, "INSERT INTO notification_cooldown VALUES(?,?,?,?) ON CONFLICT(channel_id,monitor_id,kind) DO UPDATE SET last_at=excluded.last_at", c.ID, event.MonitorID, event.Kind, event.At); e != nil {
@@ -60,11 +59,12 @@ func Enqueue(ctx context.Context, tx *sql.Tx, event Event) error {
 }
 
 type Worker struct {
-	db      *sql.DB
-	log     *slog.Logger
-	wg      sync.WaitGroup
-	cancel  context.CancelFunc
-	publish func(string, any)
+	nextMaintenance time.Time
+	db              *sql.DB
+	log             *slog.Logger
+	wg              sync.WaitGroup
+	cancel          context.CancelFunc
+	publish         func(string, any)
 }
 
 func New(db *sql.DB, log *slog.Logger, publish func(string, any)) *Worker {
@@ -107,6 +107,9 @@ func (w *Worker) Step(ctx context.Context) (stepErr error) {
 			stepErr = fmt.Errorf("notification worker panic; pending delivery retained")
 		}
 	}()
+	if err := w.maintain(ctx); err != nil {
+		return err
+	}
 	var id, channelID int64
 	var config, payload string
 	var attempts int
@@ -133,18 +136,19 @@ func (w *Worker) Step(ctx context.Context) (stepErr error) {
 		return ctx.Err()
 	}
 	if err == nil {
-		_, err = w.db.ExecContext(ctx, "UPDATE notification_queue SET status='delivered',attempts=attempts+1,delivered_at=?,last_error='' WHERE id=?", time.Now().Unix(), id)
+		_, err = w.db.ExecContext(ctx, "UPDATE notification_queue SET status='delivered',attempts=attempts+1,delivered_at=?,last_error='' WHERE id=? AND status='pending'", time.Now().Unix(), id)
 	} else {
 		message := err.Error()
 		delay := int64(5) << min(attempts, 10)
 		if delay > 3600 {
 			delay = 3600
 		}
-		_, err = w.db.ExecContext(ctx, "UPDATE notification_queue SET attempts=attempts+1,next_at=?,last_error=? WHERE id=?", time.Now().Unix()+delay, message, id)
+		_, err = w.db.ExecContext(ctx, "UPDATE notification_queue SET attempts=attempts+1,next_at=?,last_error=? WHERE id=? AND status='pending'", time.Now().Unix()+delay, message, id)
 	}
 	if err == nil {
 		w.publish("delivery", map[string]any{"id": id})
-		_, err = w.db.ExecContext(ctx, "DELETE FROM notification_queue WHERE status='delivered' AND delivered_at<?", time.Now().Add(-30*24*time.Hour).Unix())
+		w.nextMaintenance = time.Time{}
+		err = w.maintain(ctx)
 	}
 	return err
 }
