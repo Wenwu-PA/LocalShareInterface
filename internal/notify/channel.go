@@ -20,6 +20,7 @@ import (
 )
 
 type Channel struct {
+	Resources   bool   `json:"resources"`
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
 	Kind        string `json:"kind"`

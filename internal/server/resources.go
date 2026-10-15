@@ -145,6 +145,15 @@ func (s *Server) CheckResources(ctx context.Context) {
 		s.resourceLevels["resource_probe"] = "unknown"
 		return
 	}
+	if deliveryErr := s.queueResourceTransitions(ctx, status); deliveryErr != nil {
+		if ctx.Err() == nil && !s.resourceDeliveryFailed {
+			s.Log.Error("resource notification state write failed", "error", deliveryErr)
+		}
+		s.resourceDeliveryFailed = true
+	} else if s.resourceDeliveryFailed {
+		s.Log.Info("resource notification state writes restored")
+		s.resourceDeliveryFailed = false
+	}
 	for code, level := range current {
 		if s.resourceLevels[code] != level {
 			s.Log.Warn("resource warning", "resource", code, "level", level)
