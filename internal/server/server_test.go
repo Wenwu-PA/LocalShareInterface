@@ -197,3 +197,29 @@ func TestSSESnapshotAndShutdown(t *testing.T) {
 		t.Fatal(string(b[:n]))
 	}
 }
+
+func TestHomePagePreferencesAndLegacyDefaults(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	if _, err := c.db.Exec(`INSERT INTO settings(key,value) VALUES('appearance','{"name":"Old installation"}')`); err != nil {
+		t.Fatal(err)
+	}
+	if got := c.call("GET", "/api/settings", nil, 200)["home_page"]; got != "overview" {
+		t.Fatal(got)
+	}
+	p := defaultPreferences()
+	p.HomePage = "files"
+	c.call("PUT", "/api/settings", p, 200)
+	if got := c.call("GET", "/api/settings", nil, 200)["home_page"]; got != "files" {
+		t.Fatal(got)
+	}
+	for _, invalid := range []string{"https://example.com", "external", "unknown"} {
+		p.HomePage = invalid
+		c.call("PUT", "/api/settings", p, 400)
+	}
+	p.HomePage = ""
+	c.call("PUT", "/api/settings", p, 200)
+	if got := c.call("GET", "/api/settings", nil, 200)["home_page"]; got != "overview" {
+		t.Fatal(got)
+	}
+}

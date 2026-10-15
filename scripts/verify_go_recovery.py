@@ -109,13 +109,22 @@ def main():
                     audit.get_by_role('button',name='Новее',exact=True).click()
                     expect(audit.locator('tbody tr')).to_have_count(50)
                     assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth')
+                    page.get_by_label('Стартовая страница',exact=True).select_option('files')
+                    page.get_by_role('button',name='Сохранить настройки',exact=True).click()
+                    expect(page.get_by_text('Настройки сохранены',exact=True)).to_be_visible()
+                    page.goto(base+'/')
+                    expect(page.get_by_role('heading',name='Файлы',exact=True)).to_be_visible()
+                    page.goto(base+'/#overview')
+                    expect(page.get_by_role('heading',name='Обзор сети',exact=True)).to_be_visible()
+                    page.goto(base+'/')
+                    expect(page.get_by_role('heading',name='Файлы',exact=True)).to_be_visible()
                     assert not errors, errors
                     browser.close(); stop()
                     with sqlite3.connect(dbpath) as db:
                         assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
                         assert db.execute("SELECT access FROM file_acl WHERE path='.'").fetchone()[0] == 'admin'
                     db.close()
-                    print(json.dumps({'result':'PASS','fallback_backup':True,'original_preserved':True,'review_gate':True,'loopback_only':True,'session_revoked':True,'password_changed_in_browser':True,'audit_paging_and_escaping':True,'browser_errors':errors}))
+                    print(json.dumps({'result':'PASS','fallback_backup':True,'original_preserved':True,'review_gate':True,'loopback_only':True,'session_revoked':True,'password_changed_in_browser':True,'audit_paging_and_escaping':True,'home_page_and_explicit_routes':True,'browser_errors':errors}))
             finally: stop()
 
 if __name__ == '__main__': main()

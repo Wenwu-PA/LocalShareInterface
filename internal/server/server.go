@@ -471,6 +471,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type Preferences struct {
+	HomePage string `json:"home_page"`
 	Name     string `json:"name"`
 	Subtitle string `json:"subtitle"`
 	Theme    string `json:"theme"`
@@ -481,7 +482,7 @@ type Preferences struct {
 }
 
 func defaultPreferences() Preferences {
-	return Preferences{"Домашняя сеть", "Локальный сервер", "system", "#568FFF", "normal", 14, "Europe/Moscow"}
+	return Preferences{HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
 }
 func (s *Server) preferences(ctx context.Context) (Preferences, error) {
 	p := defaultPreferences()
@@ -510,6 +511,15 @@ var accentPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	var p Preferences
 	if !readJSON(w, r, &p) {
+		return
+	}
+	if p.HomePage == "" {
+		p.HomePage = "overview"
+	}
+	switch p.HomePage {
+	case "overview", "devices", "incidents", "files":
+	default:
+		problem(w, 400, "home_page", "Выберите стартовую страницу из списка")
 		return
 	}
 	_, tzErr := time.LoadLocation(p.Timezone)
