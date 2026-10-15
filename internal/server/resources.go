@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"lanbridge/internal/files"
+	"lanbridge/internal/processmetrics"
 )
 
 type resourceAlert struct {
@@ -16,16 +17,17 @@ type resourceAlert struct {
 	Message string `json:"message"`
 }
 type resourceSnapshot struct {
-	At               int64           `json:"at"`
-	DatabaseBytes    int64           `json:"database_bytes"`
-	DatabaseLimit    int64           `json:"database_limit"`
-	ReusableBytes    int64           `json:"reusable_bytes"`
-	WALBytes         int64           `json:"wal_bytes"`
-	StorageAvailable uint64          `json:"storage_available"`
-	DataAvailable    uint64          `json:"data_available"`
-	HeapBytes        uint64          `json:"heap_bytes"`
-	Goroutines       int             `json:"goroutines"`
-	Alerts           []resourceAlert `json:"alerts"`
+	Process          *processmetrics.Sample `json:"process"`
+	At               int64                  `json:"at"`
+	DatabaseBytes    int64                  `json:"database_bytes"`
+	DatabaseLimit    int64                  `json:"database_limit"`
+	ReusableBytes    int64                  `json:"reusable_bytes"`
+	WALBytes         int64                  `json:"wal_bytes"`
+	StorageAvailable uint64                 `json:"storage_available"`
+	DataAvailable    uint64                 `json:"data_available"`
+	HeapBytes        uint64                 `json:"heap_bytes"`
+	Goroutines       int                    `json:"goroutines"`
+	Alerts           []resourceAlert        `json:"alerts"`
 }
 
 func diskLevel(free, critical uint64) string {
@@ -96,6 +98,12 @@ func (s *Server) resourceStatus(ctx context.Context) (resourceSnapshot, error) {
 		} else {
 			add("storage_disk", diskLevel(r.StorageAvailable, uint64(max(settings.CriticalFree, 0))), "Мало места в хранилище. Освободите место; загрузки остановятся при достижении резерва.")
 		}
+	}
+	process, processErr := s.processMeter.Read()
+	if processErr != nil {
+		add("process", "unknown", "Не удалось измерить CPU и память процесса.")
+	} else {
+		r.Process = &process
 	}
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)

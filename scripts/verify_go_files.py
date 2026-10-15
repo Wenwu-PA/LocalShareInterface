@@ -206,13 +206,13 @@ def main():
      resource_settings=page.evaluate("""async()=>{const s=await(await fetch('/api/status')).json();const old=(await(await fetch('/api/files/storage')).json()).settings;const r=await fetch('/api/files/storage',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify({...old,critical_free:1000000000000000})});if(!r.ok)throw new Error(await r.text());return old}""")
      page.goto(base+'/#overview');page.reload()
      page.get_by_text('Мало места в хранилище.',exact=False).wait_for()
-     page.get_by_role('heading',name='ПАМЯТЬ GO',exact=True).wait_for()
+     page.get_by_role('heading',name='ПАМЯТЬ ПРОЦЕССА',exact=True).wait_for()
      for width,device in ((1440,'desktop'),(390,'mobile')):
       page.set_viewport_size({'width':width,'height':1000})
       assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth')
       page.screenshot(path=str(output/f'resources-{device}.png'),full_page=True)
      page.evaluate("""async settings=>{const s=await(await fetch('/api/status')).json();const r=await fetch('/api/files/storage',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify(settings)});if(!r.ok)throw new Error(await r.text())}""",resource_settings)
-     page.reload();page.get_by_role('heading',name='ПАМЯТЬ GO',exact=True).wait_for()
+     page.reload();page.get_by_role('heading',name='ПАМЯТЬ ПРОЦЕССА',exact=True).wait_for()
      assert page.get_by_text('Мало места в хранилище.',exact=False).count()==0
      assert not errors,errors
      browser.close()

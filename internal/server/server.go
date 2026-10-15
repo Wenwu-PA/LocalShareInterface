@@ -27,6 +27,7 @@ import (
 	"lanbridge/internal/monitor"
 	"lanbridge/internal/network"
 	"lanbridge/internal/notify"
+	"lanbridge/internal/processmetrics"
 	"lanbridge/internal/store"
 	"lanbridge/internal/tunnels"
 )
@@ -46,6 +47,7 @@ type event struct {
 	Data any    `json:"data"`
 }
 type Server struct {
+	processMeter     processmetrics.Meter
 	resourceMu       sync.Mutex
 	resourceLevels   map[string]string
 	DB               *sql.DB

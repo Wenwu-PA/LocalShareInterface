@@ -71,6 +71,15 @@ def main():
                     peak_private = max(peak_private, getattr(info, "private", info.vms))
                 final = observed.cpu_times()
                 cpu = 100 * (final.user + final.system - initial.user - initial.system) / (time.monotonic() - started)
+                native = call('/api/resources')['process']
+                assert native and native['resident_bytes'] > 0
+                assert native['cpu_percent'] is not None and native['cpu_percent'] >= 0
+                reference = observed.memory_info()
+                assert abs(native['resident_bytes'] - reference.rss) < max(8 << 20, reference.rss * .2), (native, reference)
+                if os.name == 'nt':
+                    assert native['private_bytes'] > 0
+                    assert abs(native['private_bytes'] - reference.private) < max(8 << 20, reference.private * .2), (native, reference)
+                print(json.dumps({'native_process_metrics': native, 'psutil_reference_rss': reference.rss, 'comparison': 'PASS'}))
                 print(json.dumps({"binary_bytes": binary.stat().st_size, "idle_seconds": args.seconds,
                                   "working_set_peak_bytes": peak_rss, "private_peak_bytes": peak_private,
                                   "cpu_percent_one_core": round(cpu, 3), "monitors": 0}, indent=2))
