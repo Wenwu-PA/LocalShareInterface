@@ -30,7 +30,7 @@ func Enqueue(ctx context.Context, tx *sql.Tx, event Event) error {
 			return e
 		}
 		c.ID = id
-		if c.Enabled && ((event.Kind == "down" && c.Down) || (event.Kind == "up" && c.Up) || (event.Kind == "device" && c.Device)) {
+		if c.Enabled && ((event.Kind == "down" && c.Down) || (event.Kind == "up" && c.Up) || (event.Kind == "device" && c.Device) || (c.Resources && (event.Kind == "resource_warning" || event.Kind == "resource_critical" || event.Kind == "resource_unknown" || event.Kind == "resource_recovered"))) {
 			channels = append(channels, c)
 		}
 	}

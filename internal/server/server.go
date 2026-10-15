@@ -47,33 +47,34 @@ type event struct {
 	Data any    `json:"data"`
 }
 type Server struct {
-	processMeter     processmetrics.Meter
-	resourceMu       sync.Mutex
-	resourceLevels   map[string]string
-	DB               *sql.DB
-	Config           config.Config
-	Log              *slog.Logger
-	started          time.Time
-	authGate         chan struct{}
-	diagnosticGate   chan struct{}
-	setupMu          sync.Mutex
-	mu               sync.Mutex
-	subscribers      map[chan event]struct{}
-	sequence         uint64
-	Monitors         *monitor.Engine
-	Notifications    *notify.Worker
-	Discovery        *network.Discovery
-	Files            *files.Service
-	zipTickets       map[string]zipTicket
-	shareMu          sync.Mutex
-	shareTickets     map[string]shareTicket
-	guestGate        chan struct{}
-	External         *tunnels.Manager
-	externalHandler  http.Handler
-	externalMu       sync.Mutex
-	externalEvents   []externalEvent
-	externalRequests uint64
-	externalBytes    uint64
+	resourceDeliveryFailed bool
+	processMeter           processmetrics.Meter
+	resourceMu             sync.Mutex
+	resourceLevels         map[string]string
+	DB                     *sql.DB
+	Config                 config.Config
+	Log                    *slog.Logger
+	started                time.Time
+	authGate               chan struct{}
+	diagnosticGate         chan struct{}
+	setupMu                sync.Mutex
+	mu                     sync.Mutex
+	subscribers            map[chan event]struct{}
+	sequence               uint64
+	Monitors               *monitor.Engine
+	Notifications          *notify.Worker
+	Discovery              *network.Discovery
+	Files                  *files.Service
+	zipTickets             map[string]zipTicket
+	shareMu                sync.Mutex
+	shareTickets           map[string]shareTicket
+	guestGate              chan struct{}
+	External               *tunnels.Manager
+	externalHandler        http.Handler
+	externalMu             sync.Mutex
+	externalEvents         []externalEvent
+	externalRequests       uint64
+	externalBytes          uint64
 }
 
 func New(db *sql.DB, c config.Config, log *slog.Logger) *Server {

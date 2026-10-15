@@ -90,6 +90,7 @@ def main():
                     page.get_by_role('button', name='Добавить канал', exact=True).click()
                     page.get_by_label('Название канала', exact=True).fill('Local test')
                     page.get_by_label('Включить канал', exact=True).check()
+                    page.get_by_label('Сообщать о диске, лимите БД и восстановлении ресурсов', exact=True).check()
                     page.get_by_role('button', name='Сохранить канал', exact=True).click()
                     page.get_by_role('button', name='Отправить тест', exact=True).click()
                     page.get_by_text('канал вернул HTTP 503', exact=False).wait_for(timeout=20000)
@@ -134,6 +135,20 @@ def main():
                     csv = root / 'incidents.csv'
                     download.value.save_as(str(csv))
                     assert 'Notes check' in csv.read_text(encoding='utf-8')
+                    original_settings=page.evaluate("""async()=>{const s=await(await fetch('/api/status')).json();const old=(await(await fetch('/api/files/storage')).json()).settings;const r=await fetch('/api/files/storage',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify({...old,critical_free:1000000000000000})});if(!r.ok)throw new Error(await r.text());return old}""")
+                    process.terminate();process.wait(timeout=10);process=start();page.reload()
+                    def await_kind(kind):
+                        for _ in range(100):
+                            if any(event['kind']==kind for event in received):return
+                            time.sleep(.1)
+                        raise AssertionError('No resource delivery: '+kind)
+                    await_kind('resource_critical')
+                    process.terminate();process.wait(timeout=10);process=start();page.reload()
+                    queued=page.evaluate("async()=>await(await fetch('/api/notifications')).json()")
+                    assert sum(d['kind']=='resource_critical' for d in queued['deliveries'])==1
+                    page.evaluate("""async settings=>{const s=await(await fetch('/api/status')).json();const r=await fetch('/api/files/storage',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify(settings)});if(!r.ok)throw new Error(await r.text())}""",original_settings)
+                    process.terminate();process.wait(timeout=10);process=start();page.reload()
+                    await_kind('resource_recovered')
                     assert not errors, errors
                     browser.close()
                 process.terminate()
@@ -141,7 +156,7 @@ def main():
                 process = None
                 logs = (root / 'server.log').read_text(encoding='utf-8')
                 assert 'panic' not in logs.lower(), logs
-                print(json.dumps({'webhook_retry_after_restart': 'PASS', 'observer': 'PASS', 'incident_notes_csv': 'PASS', 'browser_errors': errors, 'screenshots': 2}))
+                print(json.dumps({'webhook_retry_after_restart': 'PASS', 'observer': 'PASS', 'incident_notes_csv': 'PASS', 'resource_alert_restart_dedup_recovery': 'PASS', 'browser_errors': errors, 'screenshots': 2}))
     finally:
         if process is not None and process.poll() is None:
             process.terminate()
