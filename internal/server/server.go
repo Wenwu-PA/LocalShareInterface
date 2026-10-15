@@ -161,6 +161,7 @@ func (s *Server) Handler(assets fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	s.monitorRoutes(mux)
 	s.notificationRoutes(mux)
+	mux.Handle("GET /api/audit", s.auth(http.HandlerFunc(s.getAudit), true))
 	mux.Handle("GET /api/resources", s.auth(http.HandlerFunc(s.getResources), true))
 	s.deviceRoutes(mux)
 	s.diagnosticRoutes(mux)

@@ -87,13 +87,35 @@ def main():
                     page.locator('[name=password]').fill(changed)
                     page.get_by_role('button',name='Войти',exact=True).click()
                     page.locator('.workspace').wait_for()
+                    # Bounded audit pages and escaped untrusted detail strings.
+                    with sqlite3.connect(dbpath) as seed:
+                        seed.executemany("INSERT INTO audit(created_at,user_id,action,detail) VALUES(1,1,'settings',?)", [(f'<img src=x onerror="window.auditInjected=true"> fixture {i}',) for i in range(120)])
+                    seed.close()
+                    page.goto(base+'/#settings')
+                    page.get_by_text('Журнал аудита',exact=True).click()
+                    audit=page.locator('details').filter(has=page.get_by_text('Журнал аудита',exact=True))
+                    expect(audit.get_by_role('button',name='Применить фильтры',exact=True)).to_be_enabled()
+                    audit.get_by_label('Событие аудита',exact=True).select_option('settings')
+                    audit.get_by_role('button',name='Применить фильтры',exact=True).click()
+                    expect(audit.locator('tbody tr')).to_have_count(50)
+                    expect(audit.locator('.audit-detail').first).to_contain_text('fixture 119')
+                    assert audit.locator('.audit-detail img').count()==0
+                    assert page.evaluate('()=>window.auditInjected===undefined')
+                    audit.get_by_role('button',name='Старее',exact=True).click()
+                    expect(audit.locator('.audit-detail').first).to_contain_text('fixture 69')
+                    audit.get_by_role('button',name='Старее',exact=True).click()
+                    expect(audit.locator('tbody tr')).to_have_count(20)
+                    expect(audit.get_by_role('button',name='Старее',exact=True)).to_be_disabled()
+                    audit.get_by_role('button',name='Новее',exact=True).click()
+                    expect(audit.locator('tbody tr')).to_have_count(50)
+                    assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth')
                     assert not errors, errors
                     browser.close(); stop()
                     with sqlite3.connect(dbpath) as db:
                         assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
                         assert db.execute("SELECT access FROM file_acl WHERE path='.'").fetchone()[0] == 'admin'
                     db.close()
-                    print(json.dumps({'result':'PASS','fallback_backup':True,'original_preserved':True,'review_gate':True,'loopback_only':True,'session_revoked':True,'password_changed_in_browser':True,'browser_errors':errors}))
+                    print(json.dumps({'result':'PASS','fallback_backup':True,'original_preserved':True,'review_gate':True,'loopback_only':True,'session_revoked':True,'password_changed_in_browser':True,'audit_paging_and_escaping':True,'browser_errors':errors}))
             finally: stop()
 
 if __name__ == '__main__': main()

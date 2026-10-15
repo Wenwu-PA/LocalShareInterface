@@ -180,8 +180,18 @@ func (s *Service) SetAccess(ctx context.Context, a Actor, raw, access string) er
 	if _, e = s.Root.Lstat(name); e != nil {
 		return e
 	}
-	_, e = s.DB.ExecContext(ctx, "INSERT INTO file_acl(path,access) VALUES(?,?) ON CONFLICT(path) DO UPDATE SET access=excluded.access", name, access)
-	return e
+	tx, e := s.DB.BeginTx(ctx, nil)
+	if e != nil {
+		return e
+	}
+	defer tx.Rollback()
+	if _, e = tx.ExecContext(ctx, "INSERT INTO file_acl(path,access) VALUES(?,?) ON CONFLICT(path) DO UPDATE SET access=excluded.access", name, access); e != nil {
+		return e
+	}
+	if _, e = tx.ExecContext(ctx, "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,'file_access',?)", time.Now().Unix(), a.ID, access+": "+name); e != nil {
+		return e
+	}
+	return tx.Commit()
 }
 func (s *Service) Settings(ctx context.Context) (Settings, error) {
 	var c Settings
