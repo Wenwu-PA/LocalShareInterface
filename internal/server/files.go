@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"lanbridge/internal/files"
-	"lanbridge/internal/store"
 	"mime"
 	"net/http"
 	"os"
@@ -26,7 +25,8 @@ func fileActor(r *http.Request) files.Actor {
 	return files.Actor{ID: u.ID, Admin: u.Role == "admin"}
 }
 func (s *Server) fileError(w http.ResponseWriter, e error) {
-	if store.IsFull(e) {
+	var databaseError interface{ Code() int }
+	if errors.As(e, &databaseError) {
 		s.dbError(w, e)
 		return
 	}
@@ -436,7 +436,21 @@ func (s *Server) saveStorage(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, "settings", "Проверьте квоты, резерв места (от 16 МиБ), корзину (1–365 дней) и срок докачки (1–720 часов)")
 		return
 	}
-	if _, e := s.DB.ExecContext(r.Context(), "UPDATE file_settings SET global_limit=?,user_limit=?,critical_free=?,trash_days=?,trash_limit=?,partial_hours=? WHERE id=1", c.GlobalLimit, c.UserLimit, c.CriticalFree, c.TrashDays, c.TrashLimit, c.PartialHours); e != nil {
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
+		s.dbError(w, e)
+		return
+	}
+	defer tx.Rollback()
+	if _, e := tx.ExecContext(r.Context(), "UPDATE file_settings SET global_limit=?,user_limit=?,critical_free=?,trash_days=?,trash_limit=?,partial_hours=? WHERE id=1", c.GlobalLimit, c.UserLimit, c.CriticalFree, c.TrashDays, c.TrashLimit, c.PartialHours); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if _, e = tx.ExecContext(r.Context(), "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,'storage_settings',?)", time.Now().Unix(), fileActor(r).ID, fmt.Sprintf("global=%d user=%d reserve=%d trash_days=%d trash_limit=%d partial_hours=%d", c.GlobalLimit, c.UserLimit, c.CriticalFree, c.TrashDays, c.TrashLimit, c.PartialHours)); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if e = tx.Commit(); e != nil {
 		s.dbError(w, e)
 		return
 	}
