@@ -22,10 +22,11 @@ export function Resources({api,details=false}) {
  return html`<section class="resource-status" aria-label="Ресурсы сервера">
   ${error&&html`<p class="connection-note" role="status">${error}${data?' Показаны предыдущие измерения.':''}</p>`}
   ${data?.alerts.map(a=>html`<p key=${a.code} class=${a.level==='critical'?'form-error':'connection-note'} role="status"><strong>${a.level==='critical'?'Критично: ':a.level==='unknown'?'Нет измерения: ':'Внимание: '}</strong>${a.message}</p>`)}
-  ${details&&data&&html`<div class="stats three">
+  ${details&&data&&html`<div class="stats four">
    <section class="stat"><h2>БАЗА ДАННЫХ</h2><strong>${bytes(data.database_bytes)}</strong><p>Лимит ${bytes(data.database_limit)} · свободных страниц ${bytes(data.reusable_bytes)}</p><p>WAL: ${bytes(data.wal_bytes)}</p></section>
    <section class="stat"><h2>СВОБОДНО НА ДИСКЕ</h2><strong>${unknown('storage_disk')?'Нет данных':bytes(data.storage_available)}</strong><p>Хранилище · диск БД: ${unknown('data_disk')?'нет данных':bytes(data.data_available)}</p></section>
-   <section class="stat"><h2>ПАМЯТЬ GO</h2><strong>${bytes(data.heap_bytes)}</strong><p>Занятая куча · ${data.goroutines} горутин</p><p>Не включает всю память процесса и ОС</p></section>
+   <section class="stat"><h2>ПАМЯТЬ ПРОЦЕССА</h2><strong>${data.process?bytes(data.process.resident_bytes):'Нет данных'}</strong><p>В RAM · куча Go ${bytes(data.heap_bytes)}</p><p>${data.process?.private_bytes!==null&&data.process?.private_bytes!==undefined?'Private commit: '+bytes(data.process.private_bytes):'RSS может включать общие страницы'}</p></section>
+   <section class="stat"><h2>CPU ПРОЦЕССА</h2><strong>${data.process?.cpu_percent!==null&&data.process?.cpu_percent!==undefined?data.process.cpu_percent.toFixed(1)+'%':'Ожидание замера'}</strong><p>100% = одно логическое ядро</p><p>${data.goroutines} горутин · ${data.process?.window_seconds?Math.round(data.process.window_seconds)+' с между замерами':'Нужны два замера'}</p></section>
   </div>`}
  </section>`;
 }
