@@ -57,6 +57,7 @@ func (s *Server) fileRoutes(mux *http.ServeMux) {
 		}), admin)
 	}
 	mux.Handle("GET /api/files", wrap(s.listFiles, false))
+	mux.Handle("POST /api/files/folder-sizes", wrap(s.folderSizes, false))
 	mux.Handle("GET /api/files/download", wrap(s.downloadFile, false))
 	mux.Handle("POST /api/files/mkdir", wrap(s.mkdir, false))
 	mux.Handle("POST /api/files/operation", wrap(s.fileOperation, false))
@@ -572,4 +573,28 @@ func (w *downloadWriter) Write(data []byte) (int, error) {
 		w.failed = true
 	}
 	return n, e
+}
+
+func (s *Server) folderSizes(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Paths []string `json:"paths"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	if len(body.Paths) > 50 {
+		problem(w, 400, "paths", "Не более 50 папок за запрос")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	result := map[string]files.FolderSize{}
+	for _, path := range body.Paths {
+		value, err := s.Files.FolderSize(ctx, fileActor(r), path)
+		if err != nil {
+			value = files.FolderSize{State: "unavailable"}
+		}
+		result[path] = value
+	}
+	jsonResponse(w, 200, result)
 }

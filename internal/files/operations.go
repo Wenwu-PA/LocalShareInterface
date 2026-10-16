@@ -77,6 +77,7 @@ func (s *Service) trashLocked(ctx context.Context, a Actor, name string) (string
 func (s *Service) Trash(ctx context.Context, a Actor, raw string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	name, e := s.check(ctx, a, raw, true)
 	if e != nil {
 		return "", e
@@ -86,6 +87,7 @@ func (s *Service) Trash(ctx context.Context, a Actor, raw string) (string, error
 func (s *Service) Move(ctx context.Context, a Actor, source, target, conflict string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	from, e := s.check(ctx, a, source, true)
 	if e != nil {
 		return "", e
@@ -150,6 +152,7 @@ func (s *Service) Copy(ctx context.Context, a Actor, source, target, conflict st
 	// Serialize mutations while copying; cancellation leaves only private staging data.
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	if e = s.quota(ctx, a, total); e != nil {
 		return "", e
 	}
@@ -222,6 +225,7 @@ func (s *Service) Copy(ctx context.Context, a Actor, source, target, conflict st
 func (s *Service) Restore(ctx context.Context, a Actor, id, conflict string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	var name, state, acl string
 	var owner, size int64
 	if e := s.DB.QueryRowContext(ctx, "SELECT path,owner_id,state,size,acl FROM trash WHERE id=?", id).Scan(&name, &owner, &state, &size, &acl); e != nil {

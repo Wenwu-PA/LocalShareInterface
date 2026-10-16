@@ -66,6 +66,7 @@ func (s *Service) Maintenance(ctx context.Context) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	type item struct {
 		id            string
 		size, created int64

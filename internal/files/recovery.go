@@ -65,6 +65,7 @@ func (s *Service) finishOperation(ctx context.Context, o operation) error {
 func (s *Service) Recover(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	rows, e := s.DB.QueryContext(ctx, "SELECT id,source,target,owner_id,kind,acl FROM file_operations ORDER BY created")
 	if e != nil {
 		return e

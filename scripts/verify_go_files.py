@@ -172,6 +172,8 @@ def main():
      page.locator('.upload-row').filter(has_text='Фото/dropped.txt').get_by_text('Готово',exact=False).wait_for()
      response=context.request.get(base+'/api/files/download',params={'path':'Фото/dropped.txt'})
      assert response.status==200 and response.body()==b'dropped-content'
+     folder_row=page.locator('.file-row').filter(has=page.get_by_role('button',name='▱ Фото',exact=True))
+     folder_row.get_by_text('15 Б',exact=True).wait_for()
      transfer.dispose()
      # Bulk copy retains originals, detects conflicts, then move preserves bytes.
      for expected in ('Скопировано: 2. Ошибок: 0. Не обработано: 0.', 'Скопировано: 0. Ошибок: 2. Не обработано: 0.'):
