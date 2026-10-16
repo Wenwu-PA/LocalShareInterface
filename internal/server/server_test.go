@@ -223,3 +223,25 @@ func TestHomePagePreferencesAndLegacyDefaults(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestDateFormatPreferences(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	if got := c.call("GET", "/api/settings", nil, 200)["date_format"]; got != "dmy" {
+		t.Fatal(got)
+	}
+	p := defaultPreferences()
+	p.DateFormat = "iso"
+	p.Timezone = "UTC"
+	c.call("PUT", "/api/settings", p, 200)
+	if got := c.call("GET", "/api/settings", nil, 200)["date_format"]; got != "iso" {
+		t.Fatal(got)
+	}
+	p.DateFormat = "unknown"
+	c.call("PUT", "/api/settings", p, 400)
+	p.DateFormat = ""
+	c.call("PUT", "/api/settings", p, 200)
+	if got := c.call("GET", "/api/settings", nil, 200)["date_format"]; got != "dmy" {
+		t.Fatal(got)
+	}
+}

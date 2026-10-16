@@ -471,18 +471,19 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type Preferences struct {
-	HomePage string `json:"home_page"`
-	Name     string `json:"name"`
-	Subtitle string `json:"subtitle"`
-	Theme    string `json:"theme"`
-	Accent   string `json:"accent"`
-	Density  string `json:"density"`
-	FontSize int    `json:"font_size"`
-	Timezone string `json:"timezone"`
+	DateFormat string `json:"date_format"`
+	HomePage   string `json:"home_page"`
+	Name       string `json:"name"`
+	Subtitle   string `json:"subtitle"`
+	Theme      string `json:"theme"`
+	Accent     string `json:"accent"`
+	Density    string `json:"density"`
+	FontSize   int    `json:"font_size"`
+	Timezone   string `json:"timezone"`
 }
 
 func defaultPreferences() Preferences {
-	return Preferences{HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
+	return Preferences{DateFormat: "dmy", HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
 }
 func (s *Server) preferences(ctx context.Context) (Preferences, error) {
 	p := defaultPreferences()
@@ -520,6 +521,13 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	case "overview", "devices", "incidents", "files":
 	default:
 		problem(w, 400, "home_page", "Выберите стартовую страницу из списка")
+		return
+	}
+	if p.DateFormat == "" {
+		p.DateFormat = "dmy"
+	}
+	if p.DateFormat != "dmy" && p.DateFormat != "iso" {
+		problem(w, 400, "date_format", "Выберите формат даты из списка")
 		return
 	}
 	_, tzErr := time.LoadLocation(p.Timezone)
