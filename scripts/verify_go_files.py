@@ -147,6 +147,20 @@ def main():
       page.get_by_role('button',name='Восстановить',exact=True).first.click()
      page.locator('dialog').get_by_text('Корзина пуста.',exact=True).wait_for()
      page.get_by_label('Закрыть',exact=True).click()
+     # Dragging an existing file opens confirmation; cancellation keeps its path.
+     source=page.get_by_role('link',name='▤ sample.txt',exact=True)
+     source.drag_to(page.get_by_role('button',name='▱ Фото',exact=True))
+     page.get_by_label('Папка назначения',exact=True).wait_for(state='visible')
+     assert page.get_by_label('Папка назначения',exact=True).input_value()=='Фото'
+     page.get_by_role('button',name='Отмена',exact=True).click()
+     assert source.is_visible()
+     # Browser File drop onto a folder uploads there, not into the current root.
+     transfer=page.evaluate_handle("""()=>{const d=new DataTransfer();d.items.add(new File(['dropped-content'],'dropped.txt',{type:'text/plain'}));return d}""")
+     page.get_by_role('button',name='▱ Фото',exact=True).dispatch_event('drop',{'dataTransfer':transfer})
+     page.locator('.upload-row').filter(has_text='Фото/dropped.txt').get_by_text('Готово',exact=False).wait_for()
+     response=context.request.get(base+'/api/files/download',params={'path':'Фото/dropped.txt'})
+     assert response.status==200 and response.body()==b'dropped-content'
+     transfer.dispose()
      # Bulk copy retains originals, detects conflicts, then move preserves bytes.
      for expected in ('Скопировано: 2. Ошибок: 0. Не обработано: 0.', 'Скопировано: 0. Ошибок: 2. Не обработано: 0.'):
       for name in ('copy.txt','sample.txt'):page.get_by_label('Выбрать '+name,exact=True).check()
@@ -158,8 +172,9 @@ def main():
      page.get_by_role('button',name='▱ Фото',exact=True).click()
      page.get_by_role('button',name='▱ Пустая',exact=True).click()
      for name in ('copy.txt','sample.txt'):page.get_by_label('Выбрать '+name,exact=True).check()
-     page.get_by_role('button',name='Переместить выбранное',exact=True).click()
-     page.get_by_label('Папка назначения',exact=True).fill('Фото')
+     page.get_by_role('link',name='▤ sample.txt',exact=True).drag_to(tree.get_by_role('button',name='Фото',exact=True))
+     page.get_by_label('Папка назначения',exact=True).wait_for(state='visible')
+     assert page.get_by_label('Папка назначения',exact=True).input_value()=='Фото'
      page.get_by_role('button',name='Переместить',exact=True).click()
      page.get_by_text('Перенесено: 2. Ошибок: 0. Не обработано: 0.',exact=True).wait_for()
      page.get_by_role('button',name='Готово',exact=True).click()

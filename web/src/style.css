@@ -42,3 +42,5 @@
 .resource-status .stats { margin-bottom: 20px; }
 
 .audit-detail { max-width: 32rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.file-drop-target { outline: 2px dashed var(--accent, #6366f1); outline-offset: -2px; }
