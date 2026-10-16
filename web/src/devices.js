@@ -1,3 +1,4 @@
+import {dateStamp} from './date-display.js';
 import {h} from 'preact';
 import {useEffect,useRef,useState} from 'preact/hooks';
 import htm from 'htm';
@@ -5,7 +6,7 @@ import {Diagnostics} from './diagnostics.js';
 const html=htm.bind(h);
 const labels={online:'В сети',offline:'Не отвечает',unknown:'Не подтверждён'};
 const icons={device:'▣',phone:'▯',router:'⌘',server:'▤',printer:'▥'};
-const stamp=n=>n?new Date(n*1000).toLocaleString('ru-RU'):'—';
+const stamp=n=>n?dateStamp(n*1000):'—';
 export function NetworkDevices({api,notify,user,csrf}){
  const[data,setData]=useState(null),[draft,setDraft]=useState(null),[filter,setFilter]=useState(''),[status,setStatus]=useState(''),[dialog,setDialog]=useState(null),[busy,setBusy]=useState(false),[offset,setOffset]=useState(0);
  const load=()=>api('devices').then(setData).catch(e=>notify(e.message,true));

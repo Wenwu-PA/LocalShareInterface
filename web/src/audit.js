@@ -1,3 +1,4 @@
+import {dateStamp} from './date-display.js';
 import {h} from 'preact';
 import {useEffect,useRef,useState} from 'preact/hooks';
 import htm from 'htm';
@@ -28,6 +29,6 @@ function AuditPages({api}){
    <button type="button" class="button secondary" disabled=${busy} onClick=${()=>{setBefore(0);setPrevious([]);setRevision(revision+1)}}>Обновить журнал</button>
   </form>
   ${busy&&html`<p role="status">Загрузка журнала…</p>`}${error&&html`<p class="form-error" role="alert">${error}</p>`}
-  ${data&&(data.items.length?html`<div class="table-scroll"><table><thead><tr><th>ВРЕМЯ</th><th>ПОЛЬЗОВАТЕЛЬ</th><th>ДЕЙСТВИЕ</th><th>ДЕТАЛИ</th></tr></thead><tbody>${data.items.map(item=>html`<tr key=${item.id}><td>${new Date(item.at*1000).toLocaleString('ru-RU')}</td><td>${item.username|| (item.user_id===null?'Система / без входа':'Удалённый пользователь')} ${item.user_id!==null?'#'+item.user_id:''}</td><td>${actions[item.action]||item.action}</td><td class="audit-detail">${item.detail}</td></tr>`)}</tbody></table></div>`:html`<p class="muted">Событий по этому фильтру нет.</p>`)}
+  ${data&&(data.items.length?html`<div class="table-scroll"><table><thead><tr><th>ВРЕМЯ</th><th>ПОЛЬЗОВАТЕЛЬ</th><th>ДЕЙСТВИЕ</th><th>ДЕТАЛИ</th></tr></thead><tbody>${data.items.map(item=>html`<tr key=${item.id}><td>${dateStamp(item.at*1000)}</td><td>${item.username|| (item.user_id===null?'Система / без входа':'Удалённый пользователь')} ${item.user_id!==null?'#'+item.user_id:''}</td><td>${actions[item.action]||item.action}</td><td class="audit-detail">${item.detail}</td></tr>`)}</tbody></table></div>`:html`<p class="muted">Событий по этому фильтру нет.</p>`)}
   <div class="dialog-actions"><button class="button secondary" disabled=${busy||!previous.length} onClick=${()=>{setBefore(previous.at(-1));setPrevious(previous.slice(0,-1))}}>Новее</button><span class="muted">Страница ${previous.length+1}</span><button class="button secondary" disabled=${busy||!data?.has_more} onClick=${()=>{setPrevious([...previous,before]);setBefore(data.next_before)}}>Старее</button></div>`;
 }
