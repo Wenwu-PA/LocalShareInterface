@@ -51,8 +51,20 @@ def main():
      page.get_by_role("button",name="Применить",exact=True).click()
      page.get_by_role('button',name='▱ Фото',exact=True).wait_for()
      tree=page.get_by_role('complementary',name='Дерево папок')
-     tree.get_by_role('button',name='Обновить дерево',exact=True).click()
+     tree.get_by_role('button',name='Фото',exact=True).wait_for()
      tree.get_by_role('button',name='Раскрыть Фото',exact=True).click()
+     # Refresh after mutation preserves the expanded branch.
+     page.get_by_role('button',name='Новая папка',exact=True).click()
+     page.locator('dialog input[name=name]').fill('Фото/Новая ветка')
+     page.get_by_role('button',name='Применить',exact=True).click()
+     tree.get_by_role('button',name='Новая ветка',exact=True).wait_for()
+     # A change from another client appears when the tab becomes visible.
+     page.evaluate("""async()=>{const s=await(await fetch('/api/status')).json();const r=await fetch('/api/files/mkdir',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':s.csrf},body:JSON.stringify({path:'Фото/Из другой вкладки'})});if(!r.ok)throw new Error(await r.text());document.dispatchEvent(new Event('visibilitychange'))}""")
+     tree.get_by_role('button',name='Из другой вкладки',exact=True).wait_for()
+
+     assert tree.get_by_role('button',name='Свернуть Фото',exact=True).get_attribute('aria-expanded')=='true'
+     tree.get_by_role('button',name='Обновить дерево',exact=True).click()
+     tree.get_by_role('button',name='Новая ветка',exact=True).wait_for()
      tree.get_by_role('button',name='Пустая',exact=True).click()
      page.get_by_role('heading',name='Папка пуста',exact=True).wait_for()
      tree.get_by_role('button',name='Общая папка',exact=True).click()
@@ -237,6 +249,18 @@ def main():
      assert tree.locator('.folder-tree-row').count()==50
      tree.get_by_role('button',name='Далее',exact=True).click()
      tree.get_by_role('button',name='load-0050',exact=True).wait_for()
+     tree.get_by_role('button',name='Обновить дерево',exact=True).click()
+     tree.get_by_role('button',name='load-0050',exact=True).wait_for()
+     # If a page empties after deletion, the tree returns to its first page.
+     def emptied_page(route):
+      if 'folders=1' in route.request.url and 'offset=50' in route.request.url:
+       route.fulfill(status=200,content_type='application/json',body='[]')
+      else:route.continue_()
+     page.route('**/api/files?*',emptied_page)
+     tree.get_by_role('button',name='Обновить дерево',exact=True).click()
+     tree.get_by_role('button',name='load-0000',exact=True).wait_for()
+     page.unroute('**/api/files?*',emptied_page)
+
      assert tree.locator('.folder-tree-row').count()==50
      viewport.press('Control+a')
      page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('выбрано 1000')")
