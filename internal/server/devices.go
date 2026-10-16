@@ -1,10 +1,12 @@
 package server
 
 import (
+	"encoding/json"
 	"lanbridge/internal/network"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (s *Server) deviceRoutes(mux *http.ServeMux) {
@@ -87,10 +89,27 @@ func (s *Server) configureDiscovery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, e := s.DB.ExecContext(r.Context(), "UPDATE discovery_config SET enabled=?,subnet=?,interval=? WHERE id=1", body.Enabled, body.Subnet, body.Interval); e != nil {
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
 		s.dbError(w, e)
 		return
 	}
+	defer tx.Rollback()
+	if _, e := tx.ExecContext(r.Context(), "UPDATE discovery_config SET enabled=?,subnet=?,interval=? WHERE id=1", body.Enabled, body.Subnet, body.Interval); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	detail, _ := json.Marshal(body)
+	u := r.Context().Value(identityKey{}).(User)
+	if _, e = tx.ExecContext(r.Context(), "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,?,?)", time.Now().Unix(), u.ID, "discovery_config", string(detail)); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if e = tx.Commit(); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	s.publish("devices", s.Discovery.Status())
 	if !body.Enabled {
 		s.Discovery.Cancel()
 	}
@@ -115,7 +134,13 @@ func (s *Server) updateDevice(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, "device", "Имя до 128 байт; выберите значок из списка")
 		return
 	}
-	res, e := s.DB.ExecContext(r.Context(), "UPDATE devices SET name=?,icon=?,known=? WHERE id=?", strings.TrimSpace(body.Name), body.Icon, body.Known, id)
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
+		s.dbError(w, e)
+		return
+	}
+	defer tx.Rollback()
+	res, e := tx.ExecContext(r.Context(), "UPDATE devices SET name=?,icon=?,known=? WHERE id=?", strings.TrimSpace(body.Name), body.Icon, body.Known, id)
 	if e != nil {
 		s.dbError(w, e)
 		return
@@ -125,6 +150,17 @@ func (s *Server) updateDevice(w http.ResponseWriter, r *http.Request) {
 		problem(w, 404, "device", "Устройство не найдено")
 		return
 	}
+	u := r.Context().Value(identityKey{}).(User)
+	detail, _ := json.Marshal(map[string]any{"id": id, "name": strings.TrimSpace(body.Name), "icon": body.Icon, "known": body.Known})
+	if _, e = tx.ExecContext(r.Context(), "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,?,?)", time.Now().Unix(), u.ID, "device_updated", string(detail)); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if e = tx.Commit(); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	s.publish("devices", s.Discovery.Status())
 	jsonResponse(w, 200, body)
 }
 func (s *Server) deviceEvents(w http.ResponseWriter, r *http.Request) {
