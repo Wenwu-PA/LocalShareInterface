@@ -84,13 +84,32 @@ def main():
      page.locator('.upload-history .upload-row').filter(has_text='Скачивание').first.wait_for()
      page.locator('summary',has_text='История передач').click()
 
-     page.get_by_role('button',name='Выбрать загруженные',exact=True).click()
+     viewport=page.get_by_role('list',name='Список файлов',exact=True)
+     viewport.press('Control+a')
      assert page.get_by_label('Выбрать sample.txt',exact=True).is_checked()
      assert page.get_by_label('Выбрать Фото',exact=True).is_checked()
-     page.get_by_role('button',name='Снять выбор',exact=True).click()
+     viewport.press('Escape')
      assert not page.get_by_label('Выбрать sample.txt',exact=True).is_checked()
      assert page.get_by_role('button',name='Скачать ZIP',exact=True).is_disabled()
      page.get_by_label('Выбрать sample.txt',exact=True).check()
+     viewport.press('F2')
+     rename=page.locator('dialog input[name=name]')
+     rename.wait_for(state='visible')
+     assert rename.input_value()=='sample.txt'
+     rename.press('Control+a')
+     page.wait_for_function("()=>{const e=document.querySelector('dialog input[name=name]');return e.selectionEnd-e.selectionStart===e.value.length}")
+     page.get_by_role('button',name='Отмена',exact=True).click()
+     viewport.press('Shift+Delete')
+     assert page.locator('dialog').count()==0
+     viewport.press('Delete')
+     page.get_by_role('heading',name='Выбранное в корзину',exact=True).wait_for()
+     page.get_by_role('button',name='Отмена',exact=True).click()
+     page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for()
+     viewport.press('Control+f')
+     search=page.get_by_label('Поиск файлов',exact=True)
+     assert search.evaluate('(e)=>e===document.activeElement')
+     search.press('Control+a')
+     assert not page.get_by_label('Выбрать Фото',exact=True).is_checked()
      with page.expect_download() as downloading:page.get_by_role('button',name='Скачать ZIP',exact=True).click()
      import zipfile
      with zipfile.ZipFile(downloading.value.path()) as archive:assert archive.read('sample.txt')==content
@@ -118,7 +137,7 @@ def main():
      page.get_by_role('link',name='▤ copy.txt',exact=True).wait_for()
      # Bulk move two existing files, then restore both to keep later scenarios intact.
      for name in ('copy.txt','sample.txt'):page.get_by_label('Выбрать '+name,exact=True).check()
-     page.get_by_role('button',name='Выбранное в корзину',exact=True).click()
+     viewport.press('Delete')
      page.get_by_role('button',name='Перенести в корзину',exact=True).click()
      page.get_by_text('Перенесено: 2. Ошибок: 0. Не обработано: 0.',exact=True).wait_for()
      page.get_by_role('button',name='Готово',exact=True).click()
@@ -182,7 +201,7 @@ def main():
      tree.get_by_role('button',name='Далее',exact=True).click()
      tree.get_by_role('button',name='load-0050',exact=True).wait_for()
      assert tree.locator('.folder-tree-row').count()==50
-     page.get_by_role('button',name='Выбрать первые 1000',exact=True).click()
+     viewport.press('Control+a')
      page.wait_for_function("()=>document.querySelector('.file-actions .muted')?.textContent.includes('выбрано 1000')")
      page.get_by_role('button',name='Снять выбор',exact=True).click()
      assert page.locator('.file-row').count()<=18
