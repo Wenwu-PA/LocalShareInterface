@@ -8,6 +8,7 @@ import (
 )
 
 func (s *Server) deviceRoutes(mux *http.ServeMux) {
+	mux.Handle("GET /api/devices/summary", s.auth(http.HandlerFunc(s.deviceSummary), false))
 	mux.Handle("GET /api/devices", s.auth(http.HandlerFunc(s.getDevices), false))
 	mux.Handle("POST /api/devices/scan", s.auth(http.HandlerFunc(s.scanDevices), true))
 	mux.Handle("POST /api/devices/cancel", s.auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
