@@ -129,6 +129,7 @@ func (s *Service) destination(name, conflict string) (string, error) {
 func (s *Service) Begin(ctx context.Context, a Actor, raw string, size int64, hash, conflict string) (Upload, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	var empty Upload
 	name, e := s.check(ctx, a, raw, true)
 	if e != nil {
@@ -297,6 +298,7 @@ func (s *Service) Finish(ctx context.Context, a Actor, id string) (Upload, error
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	if u.State == "pending" {
 		u.Path, e = s.destination(u.Path, u.Conflict)
 		if e != nil {

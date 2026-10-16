@@ -21,6 +21,7 @@ type Actor struct {
 	Admin bool
 }
 type Service struct {
+	sizes       *folderSizer
 	Root        *os.Root
 	DB          *sql.DB
 	Log         *slog.Logger
@@ -66,7 +67,9 @@ func New(root string, db *sql.DB, log *slog.Logger) (*Service, error) {
 			return nil, ErrAccess
 		}
 	}
-	return &Service{Root: r, DB: db, Log: log}, nil
+	s := &Service{Root: r, DB: db, Log: log}
+	s.startFolderSizer()
+	return s, nil
 }
 func ID() string {
 	b := make([]byte, 16)
@@ -78,6 +81,8 @@ func ID() string {
 func DiskSpace(directory string) (uint64, uint64, error) { return freeSpace(directory) }
 func (s *Service) Space() (uint64, uint64, error)        { return freeSpace(s.Root.Name()) }
 func (s *Service) Close() {
+	s.sizes.cancel()
+	<-s.sizes.done
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -173,6 +178,7 @@ func (s *Service) SetAccess(ctx context.Context, a Actor, raw, access string) er
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	name, e := s.check(ctx, a, raw, true)
 	if e != nil {
 		return e
@@ -237,6 +243,7 @@ func (s *Service) Start(parent context.Context) {
 func (s *Service) Index(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	s.indexMu.Lock()
 	defer s.indexMu.Unlock()
 	generation := time.Now().UnixNano()
@@ -362,9 +369,7 @@ func (s *Service) list(ctx context.Context, a Actor, raw, q, sort, order string,
 	}
 	// Apply authorization before pagination so hidden entries cannot consume a page.
 	if !a.Admin {
-		query += ` AND (SELECT access FROM file_acl WHERE file_acl.path='.' OR file_acl.path=file_index.path OR substr(file_index.path,1,length(file_acl.path)+1)=file_acl.path||'/' ORDER BY length(file_acl.path) DESC LIMIT 1)!='admin'
- AND NOT EXISTS(SELECT 1 FROM trash t WHERE t.state='restoring' AND (t.path=file_index.path OR substr(file_index.path,1,length(t.path)+1)=t.path||'/'))
- AND NOT EXISTS(SELECT 1 FROM file_operations o WHERE o.target=file_index.path OR substr(file_index.path,1,length(o.target)+1)=o.target||'/' OR (o.kind='move' AND (o.source=file_index.path OR substr(file_index.path,1,length(o.source)+1)=o.source||'/')))`
+		query += " AND " + visibleIndexPredicate
 	}
 	query += " ORDER BY is_dir DESC," + column + " " + direction + ",path LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
@@ -404,6 +409,7 @@ func (s *Service) list(ctx context.Context, a Actor, raw, q, sort, order string,
 func (s *Service) Mkdir(ctx context.Context, a Actor, raw string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.invalidateFolderSizes()
 	name, e := s.check(ctx, a, raw, true)
 	if e != nil {
 		return e
@@ -457,3 +463,7 @@ func (s *Service) ShareInfo(ctx context.Context, a Actor, raw string, create boo
 	}
 	return info, nil
 }
+
+const visibleIndexPredicate = `(SELECT access FROM file_acl WHERE file_acl.path='.' OR file_acl.path=file_index.path OR substr(file_index.path,1,length(file_acl.path)+1)=file_acl.path||'/' ORDER BY length(file_acl.path) DESC LIMIT 1)!='admin'
+ AND NOT EXISTS(SELECT 1 FROM trash t WHERE t.state='restoring' AND (t.path=file_index.path OR substr(file_index.path,1,length(t.path)+1)=t.path||'/'))
+ AND NOT EXISTS(SELECT 1 FROM file_operations o WHERE o.target=file_index.path OR substr(file_index.path,1,length(o.target)+1)=o.target||'/' OR (o.kind='move' AND (o.source=file_index.path OR substr(file_index.path,1,length(o.source)+1)=o.source||'/')))`

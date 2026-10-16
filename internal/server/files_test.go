@@ -118,3 +118,19 @@ func TestPDFPreviewSizeLimitDoesNotLimitDownloads(t *testing.T) {
 		}
 	}
 }
+
+func TestFolderSizesAPIValidation(t *testing.T) {
+	c := newClient(t)
+	c.call("POST", "/api/files/folder-sizes", map[string]any{"paths": []string{"."}}, 401)
+	c.setup()
+	c.call("POST", "/api/files/folder-sizes", map[string]any{"paths": make([]string, 51)}, 400)
+	result := c.call("POST", "/api/files/folder-sizes", map[string]any{"paths": []string{".", "../outside", "missing"}}, 200)
+	for _, path := range []string{"../outside", "missing"} {
+		if result[path].(map[string]any)["state"] != "unavailable" {
+			t.Fatal(result)
+		}
+	}
+	if state := result["."].(map[string]any)["state"]; state != "pending" && state != "ready" {
+		t.Fatal(result)
+	}
+}
