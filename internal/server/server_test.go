@@ -245,3 +245,29 @@ func TestDateFormatPreferences(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestGroupOrderPreferences(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	p := defaultPreferences()
+	p.GroupOrder = []string{"LAN", " WAN ", "VPN"}
+	got := c.call("PUT", "/api/settings", p, 200)
+	if got["group_order"].([]any)[1] != "WAN" {
+		t.Fatal(got)
+	}
+	for _, order := range [][]string{{"WAN", "wan"}, {""}, {"a\nb"}, make([]string, 33)} {
+		p.GroupOrder = order
+		c.call("PUT", "/api/settings", p, 400)
+	}
+	p.GroupOrder = nil
+	got = c.call("PUT", "/api/settings", p, 200)
+	if len(got["group_order"].([]any)) != 5 {
+		t.Fatal(got)
+	}
+	p.GroupOrder = []string{}
+	c.call("PUT", "/api/settings", p, 200)
+	got = c.call("GET", "/api/settings", nil, 200)
+	if len(got["group_order"].([]any)) != 0 {
+		t.Fatal(got)
+	}
+}
