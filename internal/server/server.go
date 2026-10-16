@@ -471,19 +471,20 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type Preferences struct {
-	DateFormat string `json:"date_format"`
-	HomePage   string `json:"home_page"`
-	Name       string `json:"name"`
-	Subtitle   string `json:"subtitle"`
-	Theme      string `json:"theme"`
-	Accent     string `json:"accent"`
-	Density    string `json:"density"`
-	FontSize   int    `json:"font_size"`
-	Timezone   string `json:"timezone"`
+	GroupOrder []string `json:"group_order"`
+	DateFormat string   `json:"date_format"`
+	HomePage   string   `json:"home_page"`
+	Name       string   `json:"name"`
+	Subtitle   string   `json:"subtitle"`
+	Theme      string   `json:"theme"`
+	Accent     string   `json:"accent"`
+	Density    string   `json:"density"`
+	FontSize   int      `json:"font_size"`
+	Timezone   string   `json:"timezone"`
 }
 
 func defaultPreferences() Preferences {
-	return Preferences{DateFormat: "dmy", HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
+	return Preferences{GroupOrder: []string{"WAN", "LAN", "DNS", "Хранилище", "Heartbeat"}, DateFormat: "dmy", HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
 }
 func (s *Server) preferences(ctx context.Context) (Preferences, error) {
 	p := defaultPreferences()
@@ -522,6 +523,24 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		problem(w, 400, "home_page", "Выберите стартовую страницу из списка")
 		return
+	}
+	if p.GroupOrder == nil {
+		p.GroupOrder = defaultPreferences().GroupOrder
+	}
+	if len(p.GroupOrder) > 32 {
+		problem(w, 400, "group_order", "Не более 32 групп")
+		return
+	}
+	seenGroups := map[string]bool{}
+	for i, name := range p.GroupOrder {
+		name = strings.TrimSpace(name)
+		key := strings.ToLower(name)
+		if name == "" || len(name) > 96 || strings.ContainsAny(name, "\r\n") || seenGroups[key] {
+			problem(w, 400, "group_order", "Названия групп должны быть уникальны и содержать 1–96 байт")
+			return
+		}
+		seenGroups[key] = true
+		p.GroupOrder[i] = name
 	}
 	if p.DateFormat == "" {
 		p.DateFormat = "dmy"

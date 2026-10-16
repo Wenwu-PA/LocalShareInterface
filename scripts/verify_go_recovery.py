@@ -114,6 +114,7 @@ def main():
                     expect(fixture).to_have_text('01.01.1970, 03:00:01')
                     page.get_by_label('Часовой пояс',exact=True).select_option('UTC')
                     page.get_by_label('Формат даты',exact=True).select_option('iso')
+                    page.get_by_label('Порядок групп проверок',exact=True).fill('LAN\nWAN\nVPN\n')
                     page.get_by_label('Стартовая страница',exact=True).select_option('files')
                     page.get_by_role('button',name='Сохранить настройки',exact=True).click()
                     expect(page.get_by_text('Настройки сохранены',exact=True)).to_be_visible()
@@ -122,6 +123,12 @@ def main():
                     expect(page.get_by_role('heading',name='Файлы',exact=True)).to_be_visible()
                     page.goto(base+'/#overview')
                     expect(page.get_by_role('heading',name='Обзор сети',exact=True)).to_be_visible()
+                    group=page.get_by_label('Группа проверок',exact=True)
+                    assert group.locator('option').all_text_contents()==['Все группы','LAN','WAN','VPN']
+                    page.get_by_role('button',name='WAN (0)',exact=True).click()
+                    expect(group).to_have_value('wan')
+                    page.get_by_role('button',name='WAN (0)',exact=True).click()
+                    expect(group).to_have_value('')
                     summary=page.get_by_label('Устройства сети',exact=True)
                     expect(summary.locator('strong')).to_have_text('0 / 0')
                     with sqlite3.connect(dbpath) as seed:

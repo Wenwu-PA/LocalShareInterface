@@ -51,6 +51,8 @@ def main():
                     ready_ms = round((time.monotonic() - started) * 1000)
 
                     def capture(screen):
+                        if page.locator(".workspace").count():
+                            page.locator(".live").wait_for(state="attached")
                         page.wait_for_function("() => document.querySelectorAll('.toast').length === 0")
                         for width, device in ((1440, "desktop"), (390, "mobile")):
                             page.set_viewport_size({"width": width, "height": 1000})
@@ -77,6 +79,11 @@ def main():
                     page.locator("dialog").get_by_label("Адрес host:port", exact=True).fill(f"127.0.0.1:{port}")
                     page.get_by_role("button", name="Сохранить проверку", exact=True).click()
                     page.locator(".monitor-row").filter(has_text="UI TCP check").get_by_text("Работает", exact=True).wait_for()
+                    page.get_by_label('Группа проверок',exact=True).select_option('wan')
+                    page.wait_for_function("()=>document.querySelectorAll('.monitor-row').length===0")
+                    page.get_by_label('Группа проверок',exact=True).select_option('lan')
+                    page.locator('.monitor-row').filter(has_text='UI TCP check').wait_for()
+                    page.get_by_label('Группа проверок',exact=True).select_option('')
                     page.get_by_role("checkbox", name="Выбрать UI TCP check", exact=True).check()
                     page.get_by_role("button", name="Пауза", exact=True).click()
                     page.locator(".monitor-row").filter(has_text="UI TCP check").get_by_text("Пауза", exact=True).wait_for()
