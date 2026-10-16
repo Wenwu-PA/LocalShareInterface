@@ -1,6 +1,7 @@
 """Real-browser checks and review images for the missing design screens."""
 from pathlib import Path
 import gzip
+import re
 import json
 import os
 import secrets
@@ -165,7 +166,8 @@ def main():
             finally:
                 process.terminate()
                 process.wait(timeout=10)
-    assets = [p for p in (ROOT / "web" / "dist").rglob("*") if p.suffix in {".html", ".css", ".js"}]
+    initial_paths={"index.html"}|set(re.findall(r'(?:src|href)="/([^"<>]+)"',(ROOT/"web/dist/index.html").read_text()))
+    assets = [p for p in (ROOT / "web" / "dist").rglob("*") if p.suffix in {".html", ".css", ".js", ".mjs"}]
     names = [("devices", "Устройства"), ("settings", "Настройки"), ("login", "Вход"),
              ("setup", "Первый запуск"), ("error", "Страница ошибки")]
     if (output / "files-desktop-dark.png").exists():
@@ -192,7 +194,8 @@ def main():
                 sheet.paste(original, (x + offset * 210, y + 370))
     sheet.save(output / "contact-sheet.png")
     print(json.dumps({"first_setup_ready_ms_local_chromium": ready_ms,
-                      "frontend_gzip_bytes_excluding_fonts": sum(len(gzip.compress(p.read_bytes(), mtime=0)) for p in assets),
+                      "initial_frontend_gzip_bytes_excluding_fonts": sum(len(gzip.compress(p.read_bytes(), mtime=0)) for p in assets if p.relative_to(ROOT/"web/dist").as_posix() in initial_paths),
+                      "all_frontend_gzip_bytes_excluding_fonts": sum(len(gzip.compress(p.read_bytes(), mtime=0)) for p in assets),
                       "screenshots": 20, "external_requests": 0}, indent=2))
     print("PASS: setup/login/logout, SSE, persisted settings, mobile navigation, both themes, no page errors")
 

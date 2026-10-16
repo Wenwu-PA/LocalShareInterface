@@ -47,3 +47,8 @@
 
 .field textarea { resize: vertical; min-height: 110px; }
 .status-row .monitor-name { min-width: 0; overflow-wrap: anywhere; }
+
+.pdf-toolbar { align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.pdf-page { overflow: auto; max-height: 65vh; }
+.pdf-page canvas { display: block; max-width: 100%; height: auto; margin: auto; background: white; }
+.pdf-page canvas[hidden] { display: none; }
