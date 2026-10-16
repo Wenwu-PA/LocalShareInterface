@@ -3,7 +3,7 @@ import {h} from 'preact';
 import {useEffect,useRef,useState} from 'preact/hooks';
 import htm from 'htm';
 const html=htm.bind(h);
-const actions={setup:'Создание администратора',login:'Вход',login_failed:'Ошибка входа',user_created:'Создание пользователя',account_updated:'Изменение учётной записи',settings:'Оформление',file_access:'Файловые права',storage_settings:'Квоты и корзина',monitor_saved:'Настройка проверки',monitor_bulk:'Изменение проверок',notification_channel:'Канал уведомлений',external_heartbeat:'Внешний наблюдатель',network_scan:'Сканирование сети','share.create':'Создание ссылки','share.revoke':'Отзыв ссылки','external.start':'Включение туннеля','external.stop':'Отключение туннеля',database_recovered:'Восстановление БД'};
+const actions={discovery_config:'Настройки обнаружения',device_updated:'Изменение устройства',setup:'Создание администратора',login:'Вход',login_failed:'Ошибка входа',user_created:'Создание пользователя',account_updated:'Изменение учётной записи',settings:'Оформление',file_access:'Файловые права',storage_settings:'Квоты и корзина',monitor_saved:'Настройка проверки',monitor_bulk:'Изменение проверок',notification_channel:'Канал уведомлений',external_heartbeat:'Внешний наблюдатель',network_scan:'Сканирование сети','share.create':'Создание ссылки','share.revoke':'Отзыв ссылки','external.start':'Включение туннеля','external.stop':'Отключение туннеля',database_recovered:'Восстановление БД'};
 
 export function AuditHistory({api}){
  const[open,setOpen]=useState(false);
