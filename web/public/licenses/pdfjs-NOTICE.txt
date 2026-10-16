@@ -1,0 +1,4 @@
+PDF.js / pdfjs-dist 6.4.299
+Copyright Mozilla Foundation and individual contributors.
+https://mozilla.github.io/pdf.js/
+Distributed under Apache License 2.0; see pdfjs-LICENSE.txt.

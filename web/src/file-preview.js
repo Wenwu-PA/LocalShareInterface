@@ -1,18 +1,20 @@
+import {pdfPreviewLimit} from './pdf-limits.js';
 import {h} from 'preact';
 import {useEffect, useRef, useState} from 'preact/hooks';
 import htm from 'htm';
 const html = htm.bind(h);
 const limit = 65536;
 export function FilePreview({item, onClose}) {
- const ref = useRef(), [text, setText] = useState(null), [error, setError] = useState('');
+ const ref = useRef(), [text, setText] = useState(null), [error, setError] = useState(''),[PDF,setPDF]=useState(null);
  const extension = item.name.split('.').pop().toLowerCase();
  const kind = ['txt','md','log','csv','json','yaml','yml','xml','html','css','js','py','go'].includes(extension) ? 'text'
   : ['png','jpg','jpeg','gif','webp','avif','bmp'].includes(extension) ? 'image'
-  : ['mp4','webm','ogv','mov'].includes(extension) ? 'video' : 'unsupported';
+  : ['mp4','webm','ogv','mov'].includes(extension) ? 'video' : extension==='pdf'?'pdf':'unsupported';
  const url = '/api/files/download?' + new URLSearchParams({path:item.path});
  useEffect(() => {
   ref.current.showModal();
   const controller = new AbortController();
+  if(kind==='pdf'&&item.size<=pdfPreviewLimit)import('./pdf-preview.js').then(module=>{if(!controller.signal.aborted)setPDF(()=>module.PDFPreview)}).catch(()=>{if(!controller.signal.aborted)setError('Не удалось загрузить просмотрщик PDF.')});
   if (kind === 'text') (async () => {
    try {
     if (!item.size) {setText('');return}
@@ -38,6 +40,7 @@ export function FilePreview({item, onClose}) {
    ${text===null?html`<p role="status">Загрузка…</p>`:html`<pre class="file-preview-text">${text||'Пустой файл'}</pre>`}`
    : kind === 'image' ? html`<img src=${url+'&inline=1'} alt=${item.name} onError=${()=>setError('Браузер не смог открыть изображение.')}/>`
    : kind === 'video' ? html`<video src=${url+'&inline=1'} controls preload="metadata" onError=${()=>setError('Браузер не поддерживает этот видеоформат или файл недоступен.')}/>`
+   : kind==='pdf'?item.size>pdfPreviewLimit?html`<p>Предпросмотр PDF доступен для файлов до 20 МиБ. Скачайте документ.</p>`:PDF?html`<${PDF} url=${url+'&inline=1&preview=pdf'}/>`:html`<p role="status">Загрузка просмотрщика PDF…</p>`
    : html`<p>Предпросмотр этого формата пока не поддерживается.</p>`}
   <div class="dialog-actions"><a class="button secondary" href=${url} download=${item.name}>Скачать файл</a></div>
  </dialog>`;

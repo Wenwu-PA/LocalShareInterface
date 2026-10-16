@@ -84,3 +84,37 @@ func TestFileAPIUploadRangeZipAndTrash(t *testing.T) {
 	c.call("POST", "/api/files/restore", map[string]any{"id": deleted["result"], "conflict": "skip"}, 200)
 	c.call("GET", "/api/files/download?path=../outside", nil, 403)
 }
+
+func TestPDFPreviewSizeLimitDoesNotLimitDownloads(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	f, e := c.server.Files.Root.Create("large.pdf")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = f.Truncate(20*1024*1024 + 1); e != nil {
+		f.Close()
+		t.Fatal(e)
+	}
+	f.Close()
+	c.call("GET", "/api/files/download?path=large.pdf&inline=1&preview=pdf", nil, 413)
+	for _, mode := range []struct {
+		query  string
+		status int
+	}{{"&preview=pdf", 413}, {"", 206}} {
+		req, _ := http.NewRequest("GET", c.srv.URL+"/api/files/download?path=large.pdf&inline=1"+mode.query, nil)
+		req.Header.Set("Range", "bytes=0-3")
+		res, e := c.http.Do(req)
+		if e != nil {
+			t.Fatal(e)
+		}
+		raw, e := io.ReadAll(res.Body)
+		res.Body.Close()
+		if e != nil || res.StatusCode != mode.status {
+			t.Fatal(res.StatusCode, e)
+		}
+		if mode.status == 206 && len(raw) != 4 {
+			t.Fatal(len(raw))
+		}
+	}
+}

@@ -215,6 +215,10 @@ func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {
 		s.fileError(w, e)
 		return
 	}
+	if r.URL.Query().Get("preview") == "pdf" && info.Size() > 20*1024*1024 {
+		problem(w, http.StatusRequestEntityTooLarge, "preview_size", "Предпросмотр PDF доступен для файлов до 20 МиБ")
+		return
+	}
 	kind := mime.TypeByExtension(path.Ext(info.Name()))
 	if kind == "" {
 		kind = "application/octet-stream"
