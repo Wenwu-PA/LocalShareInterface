@@ -162,6 +162,7 @@ func (s *Server) audit(ctx context.Context, id any, action, detail string) error
 
 func (s *Server) Handler(assets fs.FS) http.Handler {
 	mux := http.NewServeMux()
+	s.brandingRoutes(mux)
 	s.monitorRoutes(mux)
 	s.notificationRoutes(mux)
 	mux.Handle("GET /api/audit", s.auth(http.HandlerFunc(s.getAudit), true))
