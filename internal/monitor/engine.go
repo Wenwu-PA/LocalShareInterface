@@ -13,8 +13,9 @@ import (
 )
 
 type job struct {
-	cancel context.CancelFunc
-	config string
+	obsolete *atomic.Bool
+	cancel   context.CancelFunc
+	config   string
 }
 type Engine struct {
 	db        *sql.DB
@@ -68,22 +69,25 @@ func (e *Engine) Reload() error {
 			if old.config == string(raw) {
 				continue
 			}
+			old.obsolete.Store(true)
 			old.cancel()
 		}
 		ctx, cancel := context.WithCancel(e.ctx)
-		e.jobs[m.ID] = job{cancel, string(raw)}
+		obsolete := &atomic.Bool{}
+		e.jobs[m.ID] = job{cancel: cancel, config: string(raw), obsolete: obsolete}
 		e.workers.Add(1)
-		go e.run(ctx, m)
+		go e.run(ctx, m, obsolete)
 	}
 	for id, j := range e.jobs {
 		if !desired[id] {
+			j.obsolete.Store(true)
 			j.cancel()
 			delete(e.jobs, id)
 		}
 	}
 	return nil
 }
-func (e *Engine) run(ctx context.Context, m Monitor) {
+func (e *Engine) run(ctx context.Context, m Monitor, obsolete *atomic.Bool) {
 	defer e.workers.Done()
 	defer func() {
 		if recover() != nil {
@@ -115,6 +119,7 @@ func (e *Engine) run(ctx context.Context, m Monitor) {
 			}
 			started := time.Now()
 			result := Probe(ctx, m.ID, m.Definition, heartbeat)
+			result.obsolete = obsolete
 			<-e.pool
 			if ctx.Err() != nil {
 				return
@@ -218,6 +223,9 @@ func WriteBatch(ctx context.Context, db *sql.DB, results []Result) ([]Monitor, e
 	defer tx.Rollback()
 	updated := []Monitor{}
 	for _, r := range results {
+		if r.obsolete != nil && r.obsolete.Load() {
+			continue
+		}
 		var m Monitor
 		var raw string
 		m.ID = r.ID
@@ -231,7 +239,9 @@ func WriteBatch(ctx context.Context, db *sql.DB, results []Result) ([]Monitor, e
 		if err = json.Unmarshal([]byte(raw), &m.Definition); err != nil {
 			return nil, err
 		}
-		if m.Paused {
+		// The DB transaction serializes this comparison with configuration updates.
+		// Synthetic/imported Results may omit provenance; Probe always supplies it.
+		if m.Paused || (r.definition != nil && *r.definition != m.Definition) {
 			continue
 		}
 		err = tx.QueryRowContext(ctx, "SELECT status,checked,latency,failures,message FROM monitor_state WHERE monitor_id=?", r.ID).Scan(&m.State.Status, &m.State.Checked, &m.State.Latency, &m.State.Failures, &m.State.Message)

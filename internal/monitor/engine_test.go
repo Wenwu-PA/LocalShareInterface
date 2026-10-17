@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -165,5 +166,134 @@ func TestEngineStartsStopsAndPreservesUnchangedWorker(t *testing.T) {
 	case <-events:
 	case <-time.After(3 * time.Second):
 		t.Fatal("no measurement")
+	}
+}
+
+func TestQueuedResultDoesNotApplyToChangedDefinition(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "test.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	d := definition()
+	d.Kind = "heartbeat"
+	d.Retries = 1
+	raw, _ := json.Marshal(d)
+	if _, err = db.Exec("INSERT INTO monitors(id,config) VALUES(1,?)", string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	queued := Probe(context.Background(), 1, d, 0)
+	changed := d
+	changed.Name = "Changed"
+	changed.Interval = 10
+	raw, _ = json.Marshal(changed)
+	if _, err = db.Exec("UPDATE monitors SET config=? WHERE id=1", string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	events, err := WriteBatch(context.Background(), db, []Result{queued})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 0 {
+		t.Fatal("queued result from old definition applied", events)
+	}
+	for _, table := range []string{"monitor_state", "samples", "aggregates", "incidents", "notification_queue"} {
+		var count int
+		if err = db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
+			t.Fatal(table, count, err)
+		}
+	}
+	current := Probe(context.Background(), 1, changed, time.Now().Unix())
+	events, err = WriteBatch(context.Background(), db, []Result{current})
+	if err != nil || len(events) != 1 || events[0].State.Status != "up" {
+		t.Fatal(events, err)
+	}
+}
+
+func TestQueuedResultFromCancelledWorkerIsIgnored(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "test.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	d := definition()
+	d.Kind = "heartbeat"
+	d.Retries = 1
+	raw, _ := json.Marshal(d)
+	if _, err = db.Exec("INSERT INTO monitors(id,config) VALUES(1,?)", string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	queued := Probe(context.Background(), 1, d, 0)
+	queued.obsolete = &atomic.Bool{}
+	queued.obsolete.Store(true)
+	events, err := WriteBatch(context.Background(), db, []Result{queued})
+	if err != nil || len(events) != 0 {
+		t.Fatal("cancelled worker result applied", events, err)
+	}
+}
+
+func TestReloadInvalidatesWorkersButShutdownFlushesCurrentResults(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "test.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	d := definition()
+	d.Kind = "heartbeat"
+	d.Retries = 1
+	save := func() {
+		t.Helper()
+		raw, _ := json.Marshal(d)
+		if _, err := db.Exec("INSERT INTO monitors(id,config) VALUES(19,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config", string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save()
+	engine := New(db, slog.New(slog.NewTextHandler(io.Discard, nil)), func(string, any) {})
+	if err = engine.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	token := func() *atomic.Bool { engine.mu.Lock(); defer engine.mu.Unlock(); return engine.jobs[19].obsolete }
+	first := token()
+	if err = engine.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if token() != first || first.Load() {
+		t.Fatal("unchanged worker invalidated")
+	}
+	d.Name = "changed"
+	save()
+	if err = engine.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	second := token()
+	if !first.Load() || second == first || second.Load() {
+		t.Fatal("old worker not invalidated")
+	}
+	d.Paused = true
+	save()
+	if err = engine.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if !second.Load() || token() != nil {
+		t.Fatal("paused worker retained")
+	}
+	d.Paused = false
+	save()
+	if err = engine.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	current := token()
+	result := Probe(context.Background(), 19, d, 0)
+	result.obsolete = current
+	engine.queue <- result
+	engine.Close()
+	if current.Load() {
+		t.Fatal("normal shutdown invalidated completed results")
+	}
+	var status string
+	if err = db.QueryRow("SELECT status FROM monitor_state WHERE monitor_id=19").Scan(&status); err != nil || status != "down" {
+		t.Fatal("shutdown did not flush completed result", status, err)
 	}
 }

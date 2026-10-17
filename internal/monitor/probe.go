@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -51,13 +52,16 @@ type Monitor struct {
 	State State `json:"state"`
 }
 type Result struct {
-	ID       int64
-	At       int64
-	OK       bool
-	Latency  float64
-	Message  string
-	Interval int
-	Retries  int
+	// Invalidated only on worker replacement, not on normal server shutdown.
+	obsolete   *atomic.Bool
+	definition *Definition
+	ID         int64
+	At         int64
+	OK         bool
+	Latency    float64
+	Message    string
+	Interval   int
+	Retries    int
 }
 
 var hostPattern = regexp.MustCompile(`^[a-zA-Z0-9_.:-]+$`)
@@ -136,7 +140,7 @@ func HashToken(value string) string {
 
 func Probe(ctx context.Context, id int64, d Definition, lastHeartbeat int64) (r Result) {
 	started := time.Now()
-	r = Result{ID: id, At: started.Unix(), Interval: d.Interval, Retries: d.Retries}
+	r = Result{definition: &d, ID: id, At: started.Unix(), Interval: d.Interval, Retries: d.Retries}
 	defer func() {
 		r.Latency = float64(time.Since(started).Microseconds()) / 1000
 		if recover() != nil {
