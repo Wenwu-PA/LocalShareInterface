@@ -471,6 +471,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type Preferences struct {
+	CardOrder  []string `json:"card_order"`
 	GroupOrder []string `json:"group_order"`
 	DateFormat string   `json:"date_format"`
 	HomePage   string   `json:"home_page"`
@@ -484,7 +485,7 @@ type Preferences struct {
 }
 
 func defaultPreferences() Preferences {
-	return Preferences{GroupOrder: []string{"WAN", "LAN", "DNS", "Хранилище", "Heartbeat"}, DateFormat: "dmy", HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
+	return Preferences{CardOrder: []string{"availability", "internet", "checks", "devices"}, GroupOrder: []string{"WAN", "LAN", "DNS", "Хранилище", "Heartbeat"}, DateFormat: "dmy", HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
 }
 func (s *Server) preferences(ctx context.Context) (Preferences, error) {
 	p := defaultPreferences()
@@ -523,6 +524,21 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		problem(w, 400, "home_page", "Выберите стартовую страницу из списка")
 		return
+	}
+	if p.CardOrder == nil {
+		p.CardOrder = defaultPreferences().CardOrder
+	}
+	allowedCards := map[string]bool{"availability": true, "internet": true, "checks": true, "devices": true}
+	if len(p.CardOrder) != len(allowedCards) {
+		problem(w, 400, "card_order", "Укажите все четыре карточки обзора")
+		return
+	}
+	for _, card := range p.CardOrder {
+		if !allowedCards[card] {
+			problem(w, 400, "card_order", "Неизвестная или повторяющаяся карточка")
+			return
+		}
+		delete(allowedCards, card)
 	}
 	if p.GroupOrder == nil {
 		p.GroupOrder = defaultPreferences().GroupOrder

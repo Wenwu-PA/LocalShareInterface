@@ -132,6 +132,7 @@ def main():
                             page.get_by_role("button", name="Отменить диагностику", exact=True).click()
                             page.locator(".diagnostic-output").filter(has_text="Отменено").wait_for()
                         if screen == "settings":
+                            page.get_by_role('button', name='Интернет — выше', exact=True).click()
                             page.get_by_label("Название сети", exact=True).fill("Моя локальная сеть")
                             page.get_by_role("button", name="Сохранить настройки", exact=True).click()
                             page.get_by_text("Настройки сохранены", exact=True).wait_for()
@@ -139,11 +140,14 @@ def main():
                             page.get_by_label("Название сети", exact=True).wait_for()
                             assert page.get_by_label("Название сети", exact=True).input_value() == "Моя локальная сеть"
                             other = context.new_page()
-                            other.goto(base + "/#devices")
+                            other.goto(base + "/#overview")
+                            other.locator('.page-content .stats.four > .stat').first.get_by_role('heading', name='ИНТЕРНЕТ', exact=True).wait_for()
+                            page.get_by_role('button', name='Интернет — ниже', exact=True).click()
                             other.locator(".live").wait_for()
                             page.get_by_label("Название сети", exact=True).fill("Домашняя сеть")
                             page.get_by_role("button", name="Сохранить настройки", exact=True).click()
                             other.locator(".network-label strong").filter(has_text="Домашняя сеть").wait_for()
+                            other.locator('.page-content .stats.four > .stat').first.get_by_role('heading', name='ДОСТУПНОСТЬ / 30 ДНЕЙ', exact=True).wait_for()
                             other.close()
                             page.get_by_role("button", name="Добавить пользователя", exact=True).click()
                             page.locator('dialog [name="username"]').fill("reviewuser")

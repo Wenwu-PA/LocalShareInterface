@@ -271,3 +271,38 @@ func TestGroupOrderPreferences(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestCardOrderPreferences(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	p := defaultPreferences()
+	p.CardOrder = []string{"devices", "checks", "internet", "availability"}
+	got := c.call("PUT", "/api/settings", p, 200)
+	if got["card_order"].([]any)[0] != "devices" {
+		t.Fatal(got)
+	}
+	got = c.call("GET", "/api/settings", nil, 200)
+	if got["card_order"].([]any)[0] != "devices" {
+		t.Fatal(got)
+	}
+	for _, invalid := range [][]string{{}, {"devices"}, {"devices", "checks", "internet", "devices"}, {"devices", "checks", "internet", "unknown"}} {
+		p.CardOrder = invalid
+		c.call("PUT", "/api/settings", p, 400)
+		got = c.call("GET", "/api/settings", nil, 200)
+		if got["card_order"].([]any)[0] != "devices" {
+			t.Fatal("invalid update changed settings", got)
+		}
+	}
+	p.CardOrder = nil
+	got = c.call("PUT", "/api/settings", p, 200)
+	if got["card_order"].([]any)[0] != "availability" {
+		t.Fatal(got)
+	}
+	if _, err := c.db.Exec(`UPDATE settings SET value=json_remove(value,'$.card_order') WHERE key='appearance'`); err != nil {
+		t.Fatal(err)
+	}
+	got = c.call("GET", "/api/settings", nil, 200)
+	if len(got["card_order"].([]any)) != 4 {
+		t.Fatal(got)
+	}
+}
