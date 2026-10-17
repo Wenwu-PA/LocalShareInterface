@@ -1,3 +1,4 @@
+import {t} from './i18n/index.js';
 import {Branding,useBranding,LogoSettings} from './branding.js';
 import {defaultCardOrder,cardLabels,normalizeCardOrder,moveCard} from './card-order.js';
 import {defaultGroupOrder} from './monitor-groups.js';
@@ -25,8 +26,8 @@ import {resolvePage,homePages} from './routing.js';
 
 const html = htm.bind(h);
 const defaults = {card_order:defaultCardOrder,group_order:defaultGroupOrder,date_format:'dmy',home_page:'overview',name:'Домашняя сеть',subtitle:'Локальный сервер',theme:'system',accent:'#568FFF',density:'normal',font_size:14,timezone:'Europe/Moscow'};
-const nav = [['overview','Обзор сети'],['devices','Устройства'],['incidents','Инциденты'],['notifications','Уведомления'],['files','Файлы'],['external','Внешний доступ']];
-const captions = {overview:'Сеть, сервер и сервисы — состояние в реальном времени.',devices:'Устройства локальной сети, имена и история присутствия.',incidents:'История сбоев, причины и доставка уведомлений.',notifications:'Каналы доставки и правила эскалации для вашей сети.',files:'Общая папка сервера · доступ по учётным записям.',external:'Подключение извне и контроль безопасности.',settings:'Оформление, учётные записи и параметры вашей сети.'};
+const nav = ["overview", "devices", "incidents", "notifications", "files", "external"].map(id=>[id,t('nav.'+id)]);
+const captions = Object.fromEntries(["overview", "devices", "incidents", "notifications", "files", "external", "settings"].map(id=>[id,t('caption.'+id)]));
 let csrf = '';
 async function api(path, method='GET', body) {
  const response=await fetch('/api/'+path,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{},body:body?JSON.stringify(body):undefined});
@@ -107,7 +108,7 @@ function App(){
  const toastMarkup=html`<div class="toast-stack" role="status" aria-live="polite">${toasts.map(t=>html`<div class=${'toast '+(t.bad?'bad':'')} key=${t.id}>${t.text}</div>`)}</div>`;
  if(!status)return html`<div class="loading-shell"><${Brand}/>${error?html`<h1>Нет соединения с сервером</h1><p class="muted">${error}</p><${Button} onClick=${load}>Повторить подключение</${Button}>`:html`<div class="skeleton"/><div class="skeleton short"/><span class="sr-only">Подключение к серверу</span>`}</div>`;
  if(!status.authenticated)return html`<${Auth} setup=${status.setup_required} onDone=${load} prefs=${prefs} themeToggle=${themeToggle}/>${toastMarkup}`;
- const title=nav.find(item=>item[0]===page)?.[1]||(page==='settings'?'Настройки':'Страница не найдена');
+ const title=nav.find(item=>item[0]===page)?.[1]||t(page==='settings'?'nav.settings':'common.notFound');
  const navItem=([id,label],i)=>html`<a href=${'#'+id} class=${page===id?'active':''} aria-current=${page===id?'page':undefined}><span>${String(i+1).padStart(2,'0')}</span>${label}</a>`;
  async function logout(){try{await api('logout','POST',{});setToasts([]);setConnected(false);await load()}catch(e){notify(e.message,true)}}
  async function save(p){try{setPrefs(await api('settings','PUT',p));notify('Настройки сохранены')}catch(e){notify(e.message,true)}}

@@ -1,9 +1,10 @@
+import {t} from './i18n/index.js';
 import {dateStamp} from './date-display.js';
 import {h} from 'preact';
 import {useEffect,useRef,useState} from 'preact/hooks';
 import htm from 'htm';
 const html=htm.bind(h);
-const actions={branding:'Логотип сети',discovery_config:'Настройки обнаружения',device_updated:'Изменение устройства',setup:'Создание администратора',login:'Вход',login_failed:'Ошибка входа',user_created:'Создание пользователя',account_updated:'Изменение учётной записи',settings:'Оформление',file_access:'Файловые права',storage_settings:'Квоты и корзина',monitor_saved:'Настройка проверки',monitor_bulk:'Изменение проверок',notification_channel:'Канал уведомлений',external_heartbeat:'Внешний наблюдатель',network_scan:'Сканирование сети','share.create':'Создание ссылки','share.revoke':'Отзыв ссылки','external.start':'Включение туннеля','external.stop':'Отключение туннеля',database_recovered:'Восстановление БД'};
+const actions=Object.fromEntries(["branding", "discovery_config", "device_updated", "setup", "login", "login_failed", "user_created", "account_updated", "settings", "file_access", "storage_settings", "monitor_saved", "monitor_bulk", "notification_channel", "external_heartbeat", "network_scan", "share.create", "share.revoke", "external.start", "external.stop", "database_recovered"].map(id=>[id,t('audit.'+id)]));
 
 export function AuditHistory({api}){
  const[open,setOpen]=useState(false);
