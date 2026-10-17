@@ -218,7 +218,12 @@ func (s *Server) monitorHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	since := time.Now().Unix() - seconds
 	id, _ := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
-	rows, e := s.DB.QueryContext(r.Context(), `SELECT (bucket/?)*?,SUM(total),SUM(up),SUM(latency_sum) FROM aggregates WHERE bucket>=? AND (?=0 OR monitor_id=?) GROUP BY bucket/? ORDER BY bucket/?`, bucket, bucket, since, id, id, bucket, bucket)
+	group := r.URL.Query().Get("group")
+	if len(group) > 96 {
+		problem(w, 400, "group", "Слишком длинное название группы")
+		return
+	}
+	rows, e := s.DB.QueryContext(r.Context(), `SELECT (bucket/?)*?,SUM(total),SUM(up),SUM(latency_sum) FROM aggregates WHERE bucket>=? AND (?=0 OR monitor_id=?) AND (?='' OR monitor_id IN (SELECT id FROM monitors WHERE json_extract(config,'$.group')=?)) GROUP BY bucket/? ORDER BY bucket/?`, bucket, bucket, since, id, id, group, group, bucket, bucket)
 	if e != nil {
 		s.dbError(w, e)
 		return
