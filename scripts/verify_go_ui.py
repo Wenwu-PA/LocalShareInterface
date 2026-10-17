@@ -80,6 +80,17 @@ def main():
                     page.locator("dialog").get_by_label("Адрес host:port", exact=True).fill(f"127.0.0.1:{port}")
                     page.get_by_role("button", name="Сохранить проверку", exact=True).click()
                     page.locator(".monitor-row").filter(has_text="UI TCP check").get_by_text("Работает", exact=True).wait_for()
+                    with page.expect_response(lambda response: '/api/monitors/history?' in response.url and 'group=LAN' in response.url) as chart_response:
+                        page.get_by_label('Группа графика', exact=True).select_option('LAN')
+                    assert chart_response.value.status == 200
+                    with page.expect_response(lambda response: '/api/monitors/history?' in response.url and 'window=7d' in response.url and 'group=LAN' in response.url):
+                        page.get_by_label('Период графика', exact=True).select_option('7d')
+                    assert page.get_by_label('Группа графика', exact=True).input_value() == 'LAN'
+                    page.set_viewport_size({'width':390,'height':1000})
+                    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'chart controls overflow mobile'
+                    page.set_viewport_size({'width':1440,'height':1000})
+                    page.get_by_label('Период графика', exact=True).select_option('1h')
+                    page.get_by_label('Группа графика', exact=True).select_option('')
                     page.get_by_label('Группа проверок',exact=True).select_option('wan')
                     page.wait_for_function("()=>document.querySelectorAll('.monitor-row').length===0")
                     page.get_by_label('Группа проверок',exact=True).select_option('lan')
