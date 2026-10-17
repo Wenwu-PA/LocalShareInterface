@@ -70,10 +70,12 @@ func TestExternalGatewayIsolation(t *testing.T) {
 		}
 		return b
 	}
-	for _, p := range []string{"/", "/api/me", "/api/files", "/api/shares", "/api/external", "/api/events", "/healthz", "/api/settings", "/assets/../api/me", "/api/%73tatus", "//api/status"} {
+	for _, p := range []string{"/", "/api/me", "/api/files", "/api/shares", "/api/external", "/api/events", "/healthz", "/api/settings", "/api/branding", "/assets/../api/me", "/api/%73tatus", "//api/status"} {
 		call("GET", p, "", "", 404)
 	}
 	call("POST", "/api/login", "{}", "", 404)
+	call("PUT", "/api/branding", "image", "", 404)
+	call("DELETE", "/api/branding", "", "", 404)
 	var status map[string]any
 	json.Unmarshal(call("GET", "/api/status", "", "", 200), &status)
 	csrf := status["csrf"].(string)
