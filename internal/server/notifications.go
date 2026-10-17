@@ -93,10 +93,15 @@ func (s *Server) saveChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	raw, _ := json.Marshal(c)
-	var e error
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
+		s.dbError(w, e)
+		return
+	}
+	defer tx.Rollback()
 	if c.ID == 0 {
 		var count int
-		if e = s.DB.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM notification_channels").Scan(&count); e != nil {
+		if e = tx.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM notification_channels").Scan(&count); e != nil {
 			s.dbError(w, e)
 			return
 		}
@@ -104,13 +109,13 @@ func (s *Server) saveChannel(w http.ResponseWriter, r *http.Request) {
 			problem(w, 409, "limit", "Лимит 16 каналов достигнут")
 			return
 		}
-		res, err := s.DB.ExecContext(r.Context(), "INSERT INTO notification_channels(config) VALUES(?)", string(raw))
+		res, err := tx.ExecContext(r.Context(), "INSERT INTO notification_channels(config) VALUES(?)", string(raw))
 		e = err
 		if e == nil {
 			c.ID, _ = res.LastInsertId()
 		}
 	} else {
-		res, err := s.DB.ExecContext(r.Context(), "UPDATE notification_channels SET config=? WHERE id=?", string(raw), c.ID)
+		res, err := tx.ExecContext(r.Context(), "UPDATE notification_channels SET config=? WHERE id=?", string(raw), c.ID)
 		e = err
 		if e == nil {
 			n, _ := res.RowsAffected()
@@ -125,7 +130,11 @@ func (s *Server) saveChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := r.Context().Value(identityKey{}).(User)
-	if e = s.audit(r.Context(), u.ID, "notification_channel", strconv.FormatInt(c.ID, 10)); e != nil {
+	if _, e = tx.ExecContext(r.Context(), "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,?,?)", time.Now().Unix(), u.ID, "notification_channel", strconv.FormatInt(c.ID, 10)); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if e = tx.Commit(); e != nil {
 		s.dbError(w, e)
 		return
 	}
@@ -172,6 +181,11 @@ func (s *Server) testChannel(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, e)
 		return
 	}
+	u := r.Context().Value(identityKey{}).(User)
+	if _, e = tx.ExecContext(r.Context(), "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,?,?)", time.Now().Unix(), u.ID, "notification_test", strconv.FormatInt(body.ID, 10)); e != nil {
+		s.dbError(w, e)
+		return
+	}
 	if e = tx.Commit(); e != nil {
 		s.dbError(w, e)
 		return
@@ -190,12 +204,22 @@ func (s *Server) saveObserver(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, "observer", "Укажите переменную LANBRIDGE_… с URL наблюдателя")
 		return
 	}
-	if _, e := s.DB.ExecContext(r.Context(), "UPDATE external_heartbeat SET enabled=?,url_env=? WHERE id=1", body.Enabled, body.URLenv); e != nil {
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
+		s.dbError(w, e)
+		return
+	}
+	defer tx.Rollback()
+	if _, e := tx.ExecContext(r.Context(), "UPDATE external_heartbeat SET enabled=?,url_env=? WHERE id=1", body.Enabled, body.URLenv); e != nil {
 		s.dbError(w, e)
 		return
 	}
 	u := r.Context().Value(identityKey{}).(User)
-	if e := s.audit(r.Context(), u.ID, "external_heartbeat", "configuration changed"); e != nil {
+	if _, e := tx.ExecContext(r.Context(), "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,?,?)", time.Now().Unix(), u.ID, "external_heartbeat", "configuration changed"); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if e = tx.Commit(); e != nil {
 		s.dbError(w, e)
 		return
 	}
@@ -245,15 +269,30 @@ func (s *Server) incidentNote(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, "note", "Заметка: 1–2000 байт")
 		return
 	}
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
+		s.dbError(w, e)
+		return
+	}
+	defer tx.Rollback()
 	var exists int
-	if e = s.DB.QueryRowContext(r.Context(), "SELECT 1 FROM incidents WHERE id=?", id).Scan(&exists); e == sql.ErrNoRows {
+	if e = tx.QueryRowContext(r.Context(), "SELECT 1 FROM incidents WHERE id=?", id).Scan(&exists); e == sql.ErrNoRows {
 		problem(w, 404, "incident", "Инцидент не найден")
 		return
 	} else if e != nil {
 		s.dbError(w, e)
 		return
 	}
-	if _, e = s.DB.ExecContext(r.Context(), "INSERT INTO incident_events(incident_id,at,kind,message) VALUES(?,?,'note',?)", id, time.Now().Unix(), body.Message); e != nil {
+	if _, e = tx.ExecContext(r.Context(), "INSERT INTO incident_events(incident_id,at,kind,message) VALUES(?,?,'note',?)", id, time.Now().Unix(), body.Message); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	u := r.Context().Value(identityKey{}).(User)
+	if _, e = tx.ExecContext(r.Context(), "INSERT INTO audit(created_at,user_id,action,detail) VALUES(?,?,?,?)", time.Now().Unix(), u.ID, "incident_note", strconv.FormatInt(id, 10)); e != nil {
+		s.dbError(w, e)
+		return
+	}
+	if e = tx.Commit(); e != nil {
 		s.dbError(w, e)
 		return
 	}

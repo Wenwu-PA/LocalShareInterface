@@ -4,7 +4,7 @@ import {h} from 'preact';
 import {useEffect,useRef,useState} from 'preact/hooks';
 import htm from 'htm';
 const html=htm.bind(h);
-const actions=Object.fromEntries(["branding", "discovery_config", "device_updated", "setup", "login", "login_failed", "user_created", "account_updated", "settings", "file_access", "storage_settings", "monitor_saved", "monitor_bulk", "notification_channel", "external_heartbeat", "network_scan", "share.create", "share.revoke", "external.start", "external.stop", "database_recovered"].map(id=>[id,t('audit.'+id)]));
+const actions=Object.fromEntries(["notification_test", "incident_note", "branding", "discovery_config", "device_updated", "setup", "login", "login_failed", "user_created", "account_updated", "settings", "file_access", "storage_settings", "monitor_saved", "monitor_bulk", "notification_channel", "external_heartbeat", "network_scan", "share.create", "share.revoke", "external.start", "external.stop", "database_recovered"].map(id=>[id,t('audit.'+id)]));
 
 export function AuditHistory({api}){
  const[open,setOpen]=useState(false);

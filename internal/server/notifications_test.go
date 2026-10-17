@@ -37,3 +37,77 @@ func TestNotificationConfigurationAndAuthorization(t *testing.T) {
 	c.call("GET", "/api/notifications", nil, 403)
 	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 403)
 }
+
+func TestNotificationSettingsAuditRollback(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	channel := notify.Channel{Name: "Original", Kind: "webhook", Enabled: false, Down: true, Up: true, Cooldown: 60, URLenv: "LANBRIDGE_TEST_URL"}
+	saved := c.call("POST", "/api/notifications/channels", channel, 200)
+	channel.ID = int64(saved["id"].(float64))
+	c.call("POST", "/api/notifications/heartbeat", map[string]any{"enabled": false, "url_env": "LANBRIDGE_ORIGINAL"}, 200)
+	if _, err := c.db.Exec(`CREATE TRIGGER notification_audit_failure BEFORE INSERT ON audit WHEN NEW.action IN ('notification_channel','external_heartbeat') BEGIN SELECT RAISE(ABORT,'audit unavailable'); END`); err != nil {
+		t.Fatal(err)
+	}
+	channel.Name = "Changed"
+	channel.Enabled = true
+	c.call("POST", "/api/notifications/channels", channel, 500)
+	channel.ID = 0
+	c.call("POST", "/api/notifications/channels", channel, 500)
+	c.call("POST", "/api/notifications/heartbeat", map[string]any{"enabled": true, "url_env": "LANBRIDGE_CHANGED"}, 500)
+	state := c.call("GET", "/api/notifications", nil, 200)
+	channels := state["channels"].([]any)
+	if len(channels) != 1 {
+		t.Fatal(state)
+	}
+	old := channels[0].(map[string]any)
+	if old["name"] != "Original" || old["enabled"] != false {
+		t.Fatal(old)
+	}
+	observer := state["observer"].(map[string]any)
+	if observer["enabled"] != false || observer["url_env"] != "LANBRIDGE_ORIGINAL" {
+		t.Fatal(observer)
+	}
+	if _, err := c.db.Exec("DROP TRIGGER notification_audit_failure"); err != nil {
+		t.Fatal(err)
+	}
+	c.call("POST", "/api/notifications/channels", channel, 200)
+	c.call("POST", "/api/notifications/heartbeat", map[string]any{"enabled": true, "url_env": "LANBRIDGE_CHANGED"}, 200)
+	state = c.call("GET", "/api/notifications", nil, 200)
+	if len(state["channels"].([]any)) != 2 || state["observer"].(map[string]any)["enabled"] != true {
+		t.Fatal(state)
+	}
+	channel.ID = 999
+	c.call("POST", "/api/notifications/channels", channel, 404)
+}
+
+func TestNotificationQueueAndNotesRequireAudit(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	channel := notify.Channel{Name: "Test", Kind: "webhook", Enabled: true, Down: true, Cooldown: 60, URLenv: "LANBRIDGE_TEST_URL"}
+	saved := c.call("POST", "/api/notifications/channels", channel, 200)
+	id := saved["id"]
+	if _, err := c.db.Exec("INSERT INTO incidents(id,name,opened,message) VALUES(1,'test',1,'down')"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.db.Exec(`CREATE TRIGGER notification_action_failure BEFORE INSERT ON audit WHEN NEW.action IN ('notification_test','incident_note') BEGIN SELECT RAISE(ABORT,'audit unavailable'); END`); err != nil {
+		t.Fatal(err)
+	}
+	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 500)
+	c.call("POST", "/api/incidents/1/notes", map[string]any{"message": "private note"}, 500)
+	for _, table := range []string{"notification_queue", "incident_events"} {
+		var count int
+		if err := c.db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
+			t.Fatal(table, count, err)
+		}
+	}
+	if _, err := c.db.Exec("DROP TRIGGER notification_action_failure"); err != nil {
+		t.Fatal(err)
+	}
+	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 202)
+	c.call("POST", "/api/incidents/1/notes", map[string]any{"message": "private note"}, 201)
+	var count int
+	if err := c.db.QueryRow("SELECT COUNT(*) FROM audit WHERE action IN ('notification_test','incident_note') AND detail NOT LIKE '%private note%'").Scan(&count); err != nil || count != 2 {
+		t.Fatal(count, err)
+	}
+	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 409)
+}
