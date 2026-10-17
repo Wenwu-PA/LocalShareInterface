@@ -52,3 +52,5 @@
 .pdf-page { overflow: auto; max-height: 65vh; }
 .pdf-page canvas { display: block; max-width: 100%; height: auto; margin: auto; background: white; }
 .pdf-page canvas[hidden] { display: none; }
+
+.card-order{border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0;margin:12px 0}.card-order legend{padding:0 6px}.card-order .status-row{gap:8px}.card-order .status-row>div{display:flex;flex-shrink:0}
