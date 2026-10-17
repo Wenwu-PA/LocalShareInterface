@@ -1,4 +1,6 @@
 export default Object.freeze({
+  "audit.notification_test": "Тест канала уведомлений",
+  "audit.incident_note": "Заметка к инциденту",
   "nav.overview": "Обзор сети",
   "nav.devices": "Устройства",
   "nav.incidents": "Инциденты",
