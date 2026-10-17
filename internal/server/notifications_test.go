@@ -38,6 +38,40 @@ func TestNotificationConfigurationAndAuthorization(t *testing.T) {
 	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 403)
 }
 
+func TestNotificationTestReadFailures(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	channel := notify.Channel{Name: "Disabled", Kind: "webhook", Enabled: false, Cooldown: 60, URLenv: "LANBRIDGE_TEST_URL"}
+	saved := c.call("POST", "/api/notifications/channels", channel, 200)
+	id := saved["id"]
+	c.call("POST", "/api/notifications/test", map[string]any{"id": 999}, 404)
+	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 409)
+	if _, err := c.db.Exec("UPDATE notification_channels SET config='invalid json' WHERE id=?", id); err != nil {
+		t.Fatal(err)
+	}
+	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 500)
+	if _, err := c.db.Exec("ALTER TABLE notification_channels RENAME COLUMN config TO unavailable_config"); err != nil {
+		t.Fatal(err)
+	}
+	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 500)
+	if _, err := c.db.Exec("ALTER TABLE notification_channels RENAME COLUMN unavailable_config TO config"); err != nil {
+		t.Fatal(err)
+	}
+	for _, query := range []string{
+		"SELECT COUNT(*) FROM notification_queue",
+		"SELECT COUNT(*) FROM audit WHERE action='notification_test'",
+	} {
+		var count int
+		if err := c.db.QueryRow(query).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("failed request left state: count=%d err=%v", count, err)
+		}
+	}
+	channel.ID = int64(id.(float64))
+	channel.Enabled = true
+	c.call("POST", "/api/notifications/channels", channel, 200)
+	c.call("POST", "/api/notifications/test", map[string]any{"id": id}, 202)
+}
+
 func TestNotificationSettingsAuditRollback(t *testing.T) {
 	c := newClient(t)
 	c.setup()

@@ -147,9 +147,18 @@ func (s *Server) testChannel(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
+	tx, e := s.DB.BeginTx(r.Context(), nil)
+	if e != nil {
+		s.dbError(w, e)
+		return
+	}
+	defer tx.Rollback()
 	var raw string
-	if e := s.DB.QueryRowContext(r.Context(), "SELECT config FROM notification_channels WHERE id=?", body.ID).Scan(&raw); e != nil {
+	if e = tx.QueryRowContext(r.Context(), "SELECT config FROM notification_channels WHERE id=?", body.ID).Scan(&raw); e == sql.ErrNoRows {
 		problem(w, 404, "channel", "Канал не найден")
+		return
+	} else if e != nil {
+		s.dbError(w, e)
 		return
 	}
 	var c notify.Channel
@@ -161,12 +170,6 @@ func (s *Server) testChannel(w http.ResponseWriter, r *http.Request) {
 		problem(w, 409, "channel", "Сначала включите канал")
 		return
 	}
-	tx, e := s.DB.BeginTx(r.Context(), nil)
-	if e != nil {
-		s.dbError(w, e)
-		return
-	}
-	defer tx.Rollback()
 	var pending int
 	if e = tx.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM notification_queue WHERE channel_id=? AND kind='test' AND status='pending'", body.ID).Scan(&pending); e != nil {
 		s.dbError(w, e)
