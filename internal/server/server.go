@@ -690,13 +690,22 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
 	controller := http.NewResponseController(w)
-	send := func(ev event) error {
+	// Keep the timeout only while writing: HTTP/2 expires an idle stream
+	// when its write deadline remains armed between events.
+	write := func(data string) error {
 		_ = controller.SetWriteDeadline(time.Now().Add(5 * time.Second))
-		raw, _ := json.Marshal(ev)
-		if _, err := fmt.Fprintf(w, "id: %d\ndata: %s\n\n", ev.ID, raw); err != nil {
+		defer controller.SetWriteDeadline(time.Time{})
+		if _, err := io.WriteString(w, data); err != nil {
 			return err
 		}
 		return controller.Flush()
+	}
+	send := func(ev event) error {
+		raw, err := json.Marshal(ev)
+		if err != nil {
+			return err
+		}
+		return write(fmt.Sprintf("id: %d\ndata: %s\n\n", ev.ID, raw))
 	}
 	if send(event{id, "snapshot", p}) != nil {
 		return
@@ -715,13 +724,10 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			if _, _, e := s.identity(r); e != nil {
 				return
 			}
-			_ = controller.SetWriteDeadline(time.Now().Add(5 * time.Second))
-			if _, e := io.WriteString(w, ": heartbeat\n\n"); e != nil {
+			if write(": heartbeat\n\n") != nil {
 				return
 			}
-			if controller.Flush() != nil {
-				return
-			}
+
 		}
 	}
 }
