@@ -1,3 +1,4 @@
+import {t} from './i18n/index.js';
 import {normalizeCardOrder} from './card-order.js';
 import {monitorGroups,groupKey} from './monitor-groups.js';
 import {DeviceOverview} from './device-overview.js';
@@ -6,7 +7,7 @@ import {h} from 'preact';
 import {useEffect,useRef,useState} from 'preact/hooks';
 import htm from 'htm';
 const html=htm.bind(h);
-const labels={up:'Работает',down:'Сбой',pending:'Ожидание',paused:'Пауза'};
+const labels=Object.fromEntries(["up", "down", "pending", "paused"].map(id=>[id,t('status.'+id)]));
 const initial={name:'',kind:'tcp',target:'',group:'LAN',tags:'',interval:20,timeout:5,retries:3,latency_limit:0,expected_status:200,keyword:'',method:'GET',record:'A',resolver:'',certificate_days:7,paused:false,order:0};
 const stamp=at=>at?dateStamp(at*1000,'time'):'—';
 export function MonitorOverview({api,notify,user,groupOrder,cardOrder}){

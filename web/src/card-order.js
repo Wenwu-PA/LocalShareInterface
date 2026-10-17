@@ -1,5 +1,6 @@
+import {t} from './i18n/index.js';
 export const defaultCardOrder=['availability','internet','checks','devices'];
-export const cardLabels={availability:'Доступность',internet:'Интернет',checks:'Проверки и сервисы',devices:'Устройства'};
+export const cardLabels=Object.fromEntries(["availability", "internet", "checks", "devices"].map(id=>[id,t('card.'+id)]));
 export function normalizeCardOrder(order){
  const valid=Array.isArray(order)?[...new Set(order.filter(id=>defaultCardOrder.includes(id)))]:[];
  return [...valid,...defaultCardOrder.filter(id=>!valid.includes(id))];
