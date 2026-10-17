@@ -86,6 +86,28 @@ def main():
                     with page.expect_response(lambda response: '/api/monitors/history?' in response.url and 'window=7d' in response.url and 'group=LAN' in response.url):
                         page.get_by_label('Период графика', exact=True).select_option('7d')
                     assert page.get_by_label('Группа графика', exact=True).input_value() == 'LAN'
+                    delayed = []
+                    def history_fixture(route):
+                        url = route.request.url
+                        if 'group=LAN' not in url:
+                            return route.continue_()
+                        if 'window=24h' in url:
+                            delayed.append(route)
+                            return
+                        route.fulfill(json={'points':[{'at':100,'latency':70,'total':1,'up':1}], 'samples':1,'availability':100})
+                    page.route('**/api/monitors/history?*', history_fixture)
+                    page.get_by_label('Период графика',exact=True).select_option('24h')
+                    deadline = time.monotonic()+3
+                    while not delayed and time.monotonic()<deadline:
+                        page.wait_for_timeout(10)
+                    assert delayed, 'old history request was not intercepted'
+                    page.get_by_label('Период графика',exact=True).select_option('7d')
+                    page.locator('.latency-chart small').filter(has_text='70 мс').wait_for()
+                    with page.expect_response(lambda response:'window=24h' in response.url and 'group=LAN' in response.url):
+                        delayed.pop().fulfill(json={'points':[{'at':100,'latency':900,'total':1,'up':1}], 'samples':1,'availability':100})
+                    page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+                    assert page.locator('.latency-chart small').inner_text()=='70 мс', 'stale history replaced current chart'
+                    page.unroute('**/api/monitors/history?*',history_fixture)
                     page.set_viewport_size({'width':390,'height':1000})
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'chart controls overflow mobile'
                     page.set_viewport_size({'width':1440,'height':1000})

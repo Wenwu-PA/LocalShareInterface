@@ -9,6 +9,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"testing"
@@ -58,12 +59,35 @@ func TestBrandingUploadValidationAndAudit(t *testing.T) {
 	png.Encode(&tooLarge, image.NewNRGBA(image.Rect(0, 0, 513, 1)))
 	send("PUT", tooLarge.Bytes(), c.csrf, 400)
 	send("PUT", original.Bytes()[:40], c.csrf, 400)
+	// A compact JPEG can grow beyond the storage bound when sanitized to PNG.
+	noisy := image.NewNRGBA(image.Rect(0, 0, 512, 512))
+	random := rand.New(rand.NewSource(42))
+	for i := 0; i < len(noisy.Pix); i += 4 {
+		noisy.Pix[i] = byte(random.Intn(256))
+		noisy.Pix[i+1] = byte(random.Intn(256))
+		noisy.Pix[i+2] = byte(random.Intn(256))
+		noisy.Pix[i+3] = 255
+	}
+	var compressed bytes.Buffer
+	if err := jpeg.Encode(&compressed, noisy, &jpeg.Options{Quality: 35}); err != nil {
+		t.Fatal(err)
+	}
+	if compressed.Len() > logoLimit {
+		t.Fatal("fixture must fit upload bound")
+	}
+	send("PUT", compressed.Bytes(), c.csrf, 413)
+
 	if got := c.call("GET", "/api/branding", nil, 200)["logo"]; got != saved {
 		t.Fatal("invalid upload changed logo")
 	}
 	if _, err = c.db.Exec(`CREATE TRIGGER branding_audit_failure BEFORE INSERT ON audit WHEN NEW.action='branding' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END`); err != nil {
 		t.Fatal(err)
 	}
+	var replacement bytes.Buffer
+	if err := png.Encode(&replacement, image.NewNRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	send("PUT", replacement.Bytes(), c.csrf, 500)
 	send("DELETE", nil, c.csrf, 500)
 	if c.call("GET", "/api/branding", nil, 200)["logo"] != saved {
 		t.Fatal("missing audit did not roll back removal")
