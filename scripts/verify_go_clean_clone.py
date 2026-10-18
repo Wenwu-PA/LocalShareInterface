@@ -100,6 +100,8 @@ def main():
             assert call('/api/resources')['database_bytes'] > 0
             preferences = call('/api/settings')
             preferences['card_order'] = ['devices','checks','internet','availability']
+            assert preferences['monitor_interval'] == 20
+            preferences['monitor_interval'] = 120
             call('/api/settings', preferences, 'PUT')
             def png_chunk(kind,data):
                 return struct.pack('!I',len(data))+kind+data+struct.pack('!I',zlib.crc32(kind+data)&0xffffffff)
@@ -113,13 +115,14 @@ def main():
             assert call('/api/me')['username'] == 'cleanadmin'
             assert not call('/api/status')['setup_required']
             assert call('/api/settings')['card_order']==preferences['card_order']
+            assert call('/api/settings')['monitor_interval']==120
             assert call('/api/branding')['logo']==saved_logo
             assert (clone / 'runtime/files/clean-start').is_dir()
         finally:
             stop()
     status = subprocess.check_output(['git', 'status', '--porcelain'], cwd=clone, text=True)
     assert not status, 'Startup generated unignored files: ' + status
-    result = {'result': 'PASS', 'revision': revision, 'clone': str(clone), 'build': True, 'go_tests_and_vet': True, 'javascript_tests':True, 'embedded_assets': len(assets), 'pdf_assets_and_licenses':len(optional_assets), 'setup': True, 'restart_session_and_files': True, 'restart_logo_and_card_order':True, 'clean_git_status': True, 'port_override': port, 'fresh_os': False}
+    result = {'result': 'PASS', 'revision': revision, 'clone': str(clone), 'build': True, 'go_tests_and_vet': True, 'javascript_tests':True, 'embedded_assets': len(assets), 'pdf_assets_and_licenses':len(optional_assets), 'setup': True, 'restart_session_and_files': True, 'restart_logo_and_card_order':True, 'restart_monitor_interval':True, 'clean_git_status': True, 'port_override': port, 'fresh_os': False}
     (folder / 'result.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
     print(json.dumps(result))
 
