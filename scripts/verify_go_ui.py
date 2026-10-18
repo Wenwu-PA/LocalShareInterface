@@ -14,6 +14,7 @@ import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 
 from playwright.sync_api import sync_playwright
+from browser_performance import measure_chart_frames
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,6 +88,7 @@ def main():
                         page.get_by_label('Период графика', exact=True).select_option('7d')
                     assert page.get_by_label('Группа графика', exact=True).input_value() == 'LAN'
                     delayed = []
+                    fixture_tick = [0]
                     def history_fixture(route):
                         url = route.request.url
                         if 'group=LAN' not in url:
@@ -94,7 +96,8 @@ def main():
                         if 'window=24h' in url:
                             delayed.append(route)
                             return
-                        route.fulfill(json={'points':[{'at':100,'latency':70,'total':1,'up':1}], 'samples':1,'availability':100})
+                        fixture_tick[0] += 1
+                        route.fulfill(json={'points':[{'at':100+i,'latency':70 if i==2333 else 20+fixture_tick[0]%10,'total':1,'up':1} for i in range(5000)], 'samples':5000,'availability':100})
                     page.route('**/api/monitors/history?*', history_fixture)
                     page.get_by_label('Период графика',exact=True).select_option('24h')
                     deadline = time.monotonic()+3
@@ -107,6 +110,16 @@ def main():
                         delayed.pop().fulfill(json={'points':[{'at':100,'latency':900,'total':1,'up':1}], 'samples':1,'availability':100})
                     page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
                     assert page.locator('.latency-chart small').inner_text()=='70 мс', 'stale history replaced current chart'
+                    chart_measurements=[]
+                    for width,device in ((1440,'desktop'),(390,'mobile')):
+                        page.set_viewport_size({'width':width,'height':1000})
+                        page.locator('.latency-chart').scroll_into_view_if_needed()
+                        page.wait_for_function("()=>{const e=document.querySelector('.latency-chart');return e.querySelector('polyline').points.numberOfItems<=2*Math.min(640,Math.max(1,Math.floor(e.clientWidth)))+2}")
+                        geometry=page.locator('.latency-chart').evaluate("e=>{const p=[...e.querySelector('polyline').points];return {count:p.length,first:p[0].x,last:p.at(-1).x,peak:p.some(v=>v.y===20)}}")
+                        assert geometry['first']==0 and geometry['last']==640 and geometry['peak'],geometry
+                        chart_measurements.append({'device':device,'source_points':5000,**geometry,**measure_chart_frames(page)})
+                    measurement_dir=ROOT/'.verification';measurement_dir.mkdir(exist_ok=True)
+                    (measurement_dir/'go-chart-frames.json').write_text(json.dumps({'headless':True,'browser':browser.version,'synthetic_history':True,'scenarios':chart_measurements},indent=2),encoding='utf-8')
                     page.unroute('**/api/monitors/history?*',history_fixture)
                     page.set_viewport_size({'width':390,'height':1000})
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'chart controls overflow mobile'
