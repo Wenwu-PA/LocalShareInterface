@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import {t,createTranslator,supportedLocales} from './i18n/index.js';
 import ru from './i18n/ru.js';
 import {readFileSync} from 'node:fs';
+test('incident screen labels and duration use the catalog',()=>{
+ const source=readFileSync(new URL('./incidents.js',import.meta.url),'utf8');
+ const keys=[...source.matchAll(/t\('(incidents\.[^']+)'/g)].map(match=>match[1]);
+ assert.equal(new Set(keys).size,19);
+ for(const key of keys)assert.equal(typeof ru[key],'string',key);
+ assert.doesNotMatch(source,/[А-Яа-яЁё]/);
+ assert.equal(t('incidents.durationSeconds',{seconds:120}),'120 с');
+ assert.equal(t('incidents.addNote'),'Добавить заметку');
+});
 test('notification screen messages have catalog entries and heartbeat interpolation',()=>{
  const source=readFileSync(new URL('./notifications.js',import.meta.url),'utf8');
  const keys=[...source.matchAll(/t\('(notifications\.[^']+)'/g)].map(match=>match[1]);
