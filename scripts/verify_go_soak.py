@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--binary', default=str(ROOT/'dist/lanbridge.exe'))
     parser.add_argument('--seconds', type=int, default=120)
     parser.add_argument('--monitors', type=int, default=50)
     parser.add_argument('--file-mib', type=int, default=8)
@@ -31,9 +32,9 @@ def main():
     args = parser.parse_args()
     if not 10 <= args.seconds <= 7*86400 or not 1 <= args.monitors <= 1000 or not 1 <= args.file_mib <= 256 or not 0 <= args.pause <= 60 or not 0 <= args.max_rss_mib <= 65536:
         parser.error('seconds 10..604800, monitors 1..1000, file-mib 1..256, pause 0..60, max-rss-mib 0..65536 (0 disables cap)')
-    binary = ROOT/'dist/lanbridge.exe'
+    binary = Path(args.binary).resolve()
     if not binary.is_file():
-        parser.error('Build dist/lanbridge.exe first')
+        parser.error('Build the selected binary first')
     output = ROOT/'.verification'/('soak-'+uuid.uuid4().hex[:12])
     output.mkdir(parents=True)
     result = {'result':'RUNNING','requested_seconds':args.seconds,'monitors':args.monitors,
