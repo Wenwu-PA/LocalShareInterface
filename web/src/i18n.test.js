@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import {t,createTranslator,supportedLocales} from './i18n/index.js';
 import ru from './i18n/ru.js';
 import {readFileSync} from 'node:fs';
+test('account dialog uses catalog messages and plain username interpolation',()=>{
+ const source=readFileSync(new URL('./accounts.js',import.meta.url),'utf8');
+ const keys=[...source.matchAll(/t\('(account\.[^']+)'/g)].map(match=>match[1]);
+ assert.equal(new Set(keys).size,15);
+ for(const key of keys)assert.equal(typeof ru[key],'string',key);
+ assert.doesNotMatch(source,/[А-Яа-яЁё]/);
+ assert.equal(t('account.title',{username:'<admin>{username}'}),'Учётная запись: <admin>{username}');
+});
 test('incident screen labels and duration use the catalog',()=>{
  const source=readFileSync(new URL('./incidents.js',import.meta.url),'utf8');
  const keys=[...source.matchAll(/t\('(incidents\.[^']+)'/g)].map(match=>match[1]);
