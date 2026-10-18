@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {t,createTranslator,supportedLocales} from './i18n/index.js';
 import ru from './i18n/ru.js';
+import {readFileSync} from 'node:fs';
+test('notification screen messages have catalog entries and heartbeat interpolation',()=>{
+ const source=readFileSync(new URL('./notifications.js',import.meta.url),'utf8');
+ const keys=[...source.matchAll(/t\('(notifications\.[^']+)'/g)].map(match=>match[1]);
+ assert.ok(keys.length>60);
+ for(const key of keys)assert.equal(typeof ru[key],'string',key);
+ assert.doesNotMatch(source,/[А-Яа-яЁё]/);
+ assert.equal(t('notifications.lastHeartbeat',{date:'18.10.2026'}),'Последний успешный heartbeat: 18.10.2026');
+ assert.equal(t('notifications.delivery.dropped'),'Вытеснено');
+});
 test('Russian catalog covers navigation, card and audit labels',()=>{
  assert.deepEqual(supportedLocales,['ru']);
  for(const id of ['overview','devices','incidents','files','notifications','external','settings'])assert.notEqual(t('nav.'+id),'nav.'+id);
