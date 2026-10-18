@@ -2,7 +2,15 @@
 
 
 def measure_scroll_frames(page, selector, row_selector, seconds=8):
-    return page.evaluate("""async ({selector,rowSelector,seconds})=>{
+    return _measure_frames(page, selector, row_selector, seconds, 'scroll')
+
+
+def measure_chart_frames(page, seconds=8):
+    return _measure_frames(page, '.latency-chart', 'polyline', seconds, 'chart')
+
+
+def _measure_frames(page, selector, row_selector, seconds, action):
+    return page.evaluate("""async ({selector,rowSelector,seconds,action})=>{
       const viewport=document.querySelector(selector);
       if(!viewport)throw new Error('Missing performance viewport: '+selector);
       if(document.hidden)throw new Error('Performance page is hidden');
@@ -15,6 +23,10 @@ def measure_scroll_frames(page, selector, row_selector, seconds=8):
       };
       const tasks=observe('longtask',entries=>longTasks.push(...entries.map(e=>e.duration)));
       const layout=observe('layout-shift',entries=>shifts.push(...entries.filter(e=>!e.hadRecentInput).map(e=>e.value)));
+      let chartUpdates=0;
+      const mutations=new MutationObserver(entries=>{chartUpdates+=entries.filter(e=>e.attributeName==='points').length});
+      mutations.observe(viewport,{attributes:true,subtree:true,attributeFilter:['points']});
+      const refresh=action==='chart'?setInterval(()=>dispatchEvent(new CustomEvent('lanbridge-event',{detail:{type:'monitors_changed'}})),400):null;
       let last=null,started=null,maxRows=0,lastPosition=null,scrollChanges=0;
       try{
         await new Promise(resolve=>{
@@ -23,7 +35,7 @@ def measure_scroll_frames(page, selector, row_selector, seconds=8):
             if(last!==null)frames.push(now-last);
             last=now;
             const phase=((now-started)/2000)%2;
-            viewport.scrollTop=Math.max(0,viewport.scrollHeight-viewport.clientHeight)*(phase<=1?phase:2-phase);
+            if(action==='scroll')viewport.scrollTop=Math.max(0,viewport.scrollHeight-viewport.clientHeight)*(phase<=1?phase:2-phase);
             if(lastPosition!==null&&viewport.scrollTop!==lastPosition)scrollChanges++;
             lastPosition=viewport.scrollTop;
             maxRows=Math.max(maxRows,viewport.querySelectorAll(rowSelector).length);
@@ -36,12 +48,12 @@ def measure_scroll_frames(page, selector, row_selector, seconds=8):
         if(layout)shifts.push(...layout.takeRecords().filter(e=>!e.hadRecentInput).map(e=>e.value));
         const sorted=[...frames].sort((a,b)=>a-b),quantile=p=>sorted[Math.ceil(sorted.length*p)-1]||0;
         const duration=frames.reduce((a,b)=>a+b,0);
-        if(!frames.length||!scrollChanges)throw new Error('No frame/scroll samples');
+        if(!frames.length||(action==='scroll'&&!scrollChanges)||(action==='chart'&&chartUpdates<5))throw new Error('Insufficient frame/scroll/chart samples');
         return {seconds:duration/1000,frame_intervals:frames.length,average_raf_fps:frames.length*1000/duration,
           p50_frame_ms:quantile(.5),p95_frame_ms:quantile(.95),p99_frame_ms:quantile(.99),max_frame_ms:Math.max(...frames),
           frames_over_25ms:frames.filter(n=>n>25).length,frames_over_50ms:frames.filter(n=>n>50).length,
           long_tasks_supported:!!tasks,long_tasks:longTasks.length,long_task_total_ms:longTasks.reduce((a,b)=>a+b,0),
           layout_shift_supported:!!layout,layout_shift_without_recent_input:shifts.reduce((a,b)=>a+b,0),
-          max_rendered_rows:maxRows,scroll_changes:scrollChanges,visibility:document.visibilityState};
-      }finally{tasks?.disconnect();layout?.disconnect();viewport.scrollTop=original}
-    }""", {'selector': selector, 'rowSelector': row_selector, 'seconds': seconds})
+          max_rendered_rows:maxRows,scroll_changes:scrollChanges,chart_updates:chartUpdates,visibility:document.visibilityState};
+      }finally{tasks?.disconnect();layout?.disconnect();mutations.disconnect();if(refresh!==null)clearInterval(refresh);viewport.scrollTop=original}
+    }""", {'selector': selector, 'rowSelector': row_selector, 'seconds': seconds, 'action': action})
