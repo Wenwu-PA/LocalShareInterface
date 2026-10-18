@@ -2,6 +2,7 @@
 from pathlib import Path
 import json, os, secrets, socket, ssl, subprocess, tempfile, time, urllib.request
 from playwright.sync_api import sync_playwright
+from browser_performance import measure_scroll_frames
 ROOT=Path(__file__).resolve().parents[1]
 def main():
  with tempfile.TemporaryDirectory(prefix="lanbridge-files-") as folder:
@@ -280,6 +281,20 @@ def main():
      page.wait_for_function("()=>document.querySelector('.file-tile')?.style.top==='0px'")
      assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth')
      assert page.locator('.file-tile').count()<=7
+     frame_results=[]
+     for width,device in ((1440,'desktop'),(390,'mobile')):
+      page.set_viewport_size({'width':width,'height':1000})
+      for mode,row_selector,bound in (('list','.file-row',18),('grid','.file-tile',35 if width==1440 else 7)):
+       page.get_by_label('Вид файлов',exact=True).select_option(mode)
+       page.locator(row_selector).first.wait_for()
+       page.locator('.file-viewport').scroll_into_view_if_needed()
+       measurement=measure_scroll_frames(page,'.file-viewport',row_selector)
+       assert measurement['max_rendered_rows']<=bound,measurement
+       frame_results.append({'device':device,'mode':mode,'width':width,**measurement})
+     report={'browser':browser.version,'headless':True,'virtual_items':1104,'scenarios':frame_results,
+             'scope':'rAF timing in local automated Chromium; not physical display FPS or phone performance'}
+     report_folder=ROOT/'.verification';report_folder.mkdir(exist_ok=True)
+     (report_folder/'go-browser-frames.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
      page.get_by_label('Вид файлов',exact=True).select_option('list')
      page.set_viewport_size({'width':1440,'height':1000})
      page.get_by_label('Поиск файлов').fill('sample');page.get_by_role('link',name='▤ sample.txt',exact=True).wait_for()
