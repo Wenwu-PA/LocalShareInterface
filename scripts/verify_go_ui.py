@@ -180,15 +180,23 @@ def main():
                             page.get_by_role('button', name='Интернет — ниже', exact=True).click()
                             other.locator(".live").wait_for()
                             page.get_by_label("Название сети", exact=True).fill("Домашняя сеть")
+                            page.get_by_label('Интервал новых проверок, с',exact=True).fill('120')
                             page.get_by_role("button", name="Сохранить настройки", exact=True).click()
                             other.locator(".network-label strong").filter(has_text="Домашняя сеть").wait_for()
                             other.locator('.page-content .stats.four > .stat').first.get_by_role('heading', name='ДОСТУПНОСТЬ / 30 ДНЕЙ', exact=True).wait_for()
+                            other.get_by_role('button',name='Добавить проверку',exact=True).click()
+                            other.get_by_role('heading',name='Новая проверка',exact=True).wait_for()
+                            assert other.get_by_label('Интервал, с',exact=True).input_value()=='120'
+                            other.get_by_role('button',name='Закрыть',exact=True).click()
+                            existing=other.request.get(base+'/api/monitors').json()
+                            assert next(m for m in existing if m['name']=='UI TCP check')['interval']==20
                             logo_path = temporary / 'logo.png'
                             Image.new('RGB', (32,32), '#568fff').save(logo_path)
                             page.get_by_label('Загрузить логотип',exact=True).set_input_files(str(logo_path))
                             other.locator('.sidebar .brand-logo').wait_for()
                             page.reload()
                             page.locator('.sidebar .brand-logo').wait_for()
+                            assert page.get_by_label('Интервал новых проверок, с',exact=True).input_value()=='120'
                             assert page.locator('.sidebar .brand-logo').evaluate('(img)=>img.complete && img.naturalWidth===32')
                             page.get_by_role('button',name='Удалить логотип',exact=True).click()
                             other.locator('.sidebar .brand-logo').wait_for(state='detached')
