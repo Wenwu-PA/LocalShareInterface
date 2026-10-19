@@ -325,6 +325,20 @@ func Compact(ctx context.Context, db *sql.DB, now time.Time) error {
 		return err
 	}
 	defer tx.Rollback()
+	retention := struct {
+		Days int `json:"monitor_history_days"`
+	}{Days: 365}
+	var settings string
+	if err = tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='appearance'").Scan(&settings); err == nil {
+		if err = json.Unmarshal([]byte(settings), &retention); err != nil {
+			return err
+		}
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+	if retention.Days < 30 || retention.Days > 365 {
+		return errors.New("monitor history retention must be 30–365 days")
+	}
 	for _, step := range []struct {
 		from, to int
 		before   int64
@@ -339,7 +353,7 @@ func Compact(ctx context.Context, db *sql.DB, now time.Time) error {
 	if _, err = tx.ExecContext(ctx, "DELETE FROM samples WHERE at<?", now.Add(-48*time.Hour).Unix()); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM aggregates WHERE bucket<?", now.Add(-365*24*time.Hour).Unix()); err != nil {
+	if _, err = tx.ExecContext(ctx, "DELETE FROM aggregates WHERE bucket<?", now.Add(-time.Duration(retention.Days)*24*time.Hour).Unix()); err != nil {
 		return err
 	}
 	return tx.Commit()

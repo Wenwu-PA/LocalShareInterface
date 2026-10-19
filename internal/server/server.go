@@ -472,22 +472,23 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type Preferences struct {
-	MonitorInterval int      `json:"monitor_interval"`
-	CardOrder       []string `json:"card_order"`
-	GroupOrder      []string `json:"group_order"`
-	DateFormat      string   `json:"date_format"`
-	HomePage        string   `json:"home_page"`
-	Name            string   `json:"name"`
-	Subtitle        string   `json:"subtitle"`
-	Theme           string   `json:"theme"`
-	Accent          string   `json:"accent"`
-	Density         string   `json:"density"`
-	FontSize        int      `json:"font_size"`
-	Timezone        string   `json:"timezone"`
+	MonitorHistoryDays int      `json:"monitor_history_days"`
+	MonitorInterval    int      `json:"monitor_interval"`
+	CardOrder          []string `json:"card_order"`
+	GroupOrder         []string `json:"group_order"`
+	DateFormat         string   `json:"date_format"`
+	HomePage           string   `json:"home_page"`
+	Name               string   `json:"name"`
+	Subtitle           string   `json:"subtitle"`
+	Theme              string   `json:"theme"`
+	Accent             string   `json:"accent"`
+	Density            string   `json:"density"`
+	FontSize           int      `json:"font_size"`
+	Timezone           string   `json:"timezone"`
 }
 
 func defaultPreferences() Preferences {
-	return Preferences{MonitorInterval: 20, CardOrder: []string{"availability", "internet", "checks", "devices"}, GroupOrder: []string{"WAN", "LAN", "DNS", "Хранилище", "Heartbeat"}, DateFormat: "dmy", HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
+	return Preferences{MonitorInterval: 20, MonitorHistoryDays: 365, CardOrder: []string{"availability", "internet", "checks", "devices"}, GroupOrder: []string{"WAN", "LAN", "DNS", "Хранилище", "Heartbeat"}, DateFormat: "dmy", HomePage: "overview", Name: "Домашняя сеть", Subtitle: "Локальный сервер", Theme: "system", Accent: "#568FFF", Density: "normal", FontSize: 14, Timezone: "Europe/Moscow"}
 }
 func (s *Server) preferences(ctx context.Context) (Preferences, error) {
 	p := defaultPreferences()
@@ -514,12 +515,16 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 var accentPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
-	p := Preferences{MonitorInterval: 20}
+	p := Preferences{MonitorInterval: 20, MonitorHistoryDays: 365}
 	if !readJSON(w, r, &p) {
 		return
 	}
 	if p.MonitorInterval < 5 || p.MonitorInterval > 86400 {
 		problem(w, 400, "monitor_interval", "Интервал новых проверок: 5–86400 секунд")
+		return
+	}
+	if p.MonitorHistoryDays < 30 || p.MonitorHistoryDays > 365 {
+		problem(w, 400, "monitor_history_days", "История мониторинга: 30–365 дней")
 		return
 	}
 	if p.HomePage == "" {
