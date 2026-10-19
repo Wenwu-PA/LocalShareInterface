@@ -21,6 +21,13 @@ import psutil
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_workload_gap(now, previous, limit):
+    gap = now - previous
+    if gap > limit:
+        raise RuntimeError(f'Workload paused or stalled for {gap:.2f}s (limit {limit}s); continuous soak invalid')
+    return gap
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--binary', default=str(ROOT/'dist/lanbridge.exe'))
@@ -29,7 +36,11 @@ def main():
     parser.add_argument('--file-mib', type=int, default=8)
     parser.add_argument('--pause', type=float, default=2)
     parser.add_argument('--max-rss-mib', type=int, default=0)
+    parser.add_argument('--login-seconds', type=int, default=3600)
+    parser.add_argument('--max-gap-seconds', type=int, default=120)
     args = parser.parse_args()
+    if not 1 <= args.login_seconds <= 3600 or not 60 <= args.max_gap_seconds <= 600:
+        parser.error('login-seconds 1..3600; max-gap-seconds 60..600')
     if not 10 <= args.seconds <= 7*86400 or not 1 <= args.monitors <= 1000 or not 1 <= args.file_mib <= 256 or not 0 <= args.pause <= 60 or not 0 <= args.max_rss_mib <= 65536:
         parser.error('seconds 10..604800, monitors 1..1000, file-mib 1..256, pause 0..60, max-rss-mib 0..65536 (0 disables cap)')
     binary = Path(args.binary).resolve()
@@ -38,7 +49,8 @@ def main():
     output = ROOT/'.verification'/('soak-'+uuid.uuid4().hex[:12])
     output.mkdir(parents=True)
     result = {'result':'RUNNING','requested_seconds':args.seconds,'monitors':args.monitors,
-              'file_bytes':args.file_mib*1024**2,'max_rss_mib':args.max_rss_mib,'report':str(output),'full_day':False}
+              'file_bytes':args.file_mib*1024**2,'max_rss_mib':args.max_rss_mib,'report':str(output),'full_day':False,
+              'login_seconds':args.login_seconds,'max_gap_seconds':args.max_gap_seconds,'relogins':0}
     digest=hashlib.sha256()
     with binary.open('rb') as binary_file:
         for block in iter(lambda:binary_file.read(1024**2),b''):digest.update(block)
@@ -66,6 +78,10 @@ def main():
             config.write_text(f'server:\n  host: 127.0.0.1\n  port: {port}\n',encoding='utf-8')
             env = {k:v for k,v in os.environ.items() if not k.startswith('LANBRIDGE_')}
             cookies, csrf = {}, ''
+            def reconnect():
+                nonlocal connection
+                if connection:connection.close()
+                connection=http.client.HTTPSConnection('127.0.0.1',port,context=ssl._create_unverified_context(),timeout=20)
             def headers():
                 return {'Cookie':'; '.join(k+'='+v for k,v in cookies.items()),'X-CSRF-Token':csrf}
             def call(path, method='GET', body=None, extra=None):
@@ -90,7 +106,7 @@ def main():
                 result['server_pid']=process.pid
                 try:
                     for _ in range(100):
-                        connection=http.client.HTTPSConnection('127.0.0.1',port,context=ssl._create_unverified_context(),timeout=20)
+                        reconnect()
                         try:call('/healthz');break
                         except OSError:
                             connection.close()
@@ -104,7 +120,7 @@ def main():
                         call('/api/monitors','POST',{'name':f'Soak {i}','kind':'http','target':f'http://127.0.0.1:{target.server_port}',
                             'group':'LAN','interval':20,'timeout':5,'retries':2,'expected_status':204,'method':'GET'})
                     observed=psutil.Process(process.pid);initial_cpu=observed.cpu_times()
-                    started=time.monotonic();last_sample=last_login=started;cycles=0;peak_rss=peak_private=0;first_rss=None
+                    started=time.monotonic();last_sample=last_login=last_cycle=started;cycles=0;peak_rss=peak_private=0;first_rss=None
                     def measure(force=False):
                         nonlocal peak_rss,peak_private,last_sample,first_rss
                         memory=observed.memory_info()
@@ -121,9 +137,15 @@ def main():
                             samples.write(json.dumps(sample)+'\n');samples.flush();last_sample=now
                             print(json.dumps(sample),flush=True)
                     measure(True)
-                    while time.monotonic()-started<args.seconds:
-                        if time.monotonic()-last_login>=3600:
-                            call('/api/login','POST',credentials);last_login=time.monotonic()
+                    while True:
+                        now=time.monotonic()
+                        result.update(observed_seconds=round(now-started,2),cycles=cycles,bytes_each_direction=cycles*args.file_mib*1024**2)
+                        check_workload_gap(now,last_cycle,args.max_gap_seconds)
+                        if now-started>=args.seconds:break
+                        last_cycle=now
+                        if now-last_login>=args.login_seconds:
+                            reconnect()
+                            call('/api/login','POST',credentials);last_login=time.monotonic();result['relogins']+=1
                         chunk=bytes([cycles%251])*(1024**2)
                         expected=hashlib.sha256()
                         for _ in range(args.file_mib):expected.update(chunk)
