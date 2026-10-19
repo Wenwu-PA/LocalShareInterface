@@ -181,6 +181,7 @@ def main():
                             other.locator(".live").wait_for()
                             page.get_by_label("Название сети", exact=True).fill("Домашняя сеть")
                             page.get_by_label('Интервал новых проверок, с',exact=True).fill('120')
+                            page.get_by_label('История мониторинга, дней',exact=True).fill('90')
                             page.get_by_role("button", name="Сохранить настройки", exact=True).click()
                             other.locator(".network-label strong").filter(has_text="Домашняя сеть").wait_for()
                             other.locator('.page-content .stats.four > .stat').first.get_by_role('heading', name='ДОСТУПНОСТЬ / 30 ДНЕЙ', exact=True).wait_for()
@@ -197,6 +198,7 @@ def main():
                             page.reload()
                             page.locator('.sidebar .brand-logo').wait_for()
                             assert page.get_by_label('Интервал новых проверок, с',exact=True).input_value()=='120'
+                            assert page.get_by_label('История мониторинга, дней',exact=True).input_value()=='90'
                             assert page.locator('.sidebar .brand-logo').evaluate('(img)=>img.complete && img.naturalWidth===32')
                             page.get_by_role('button',name='Удалить логотип',exact=True).click()
                             other.locator('.sidebar .brand-logo').wait_for(state='detached')

@@ -2,6 +2,31 @@ package server
 
 import "testing"
 
+func TestMonitorHistoryPreferences(t *testing.T) {
+	c := newClient(t)
+	c.setup()
+	p := c.call("GET", "/api/settings", nil, 200)
+	if p["monitor_history_days"] != float64(365) {
+		t.Fatal(p)
+	}
+	for _, days := range []int{30, 90, 365} {
+		p["monitor_history_days"] = days
+		c.call("PUT", "/api/settings", p, 200)
+		if got := c.call("GET", "/api/settings", nil, 200)["monitor_history_days"]; got != float64(days) {
+			t.Fatal(got)
+		}
+	}
+	for _, days := range []any{0, 29, 366, 30.5, "90"} {
+		p["monitor_history_days"] = days
+		c.call("PUT", "/api/settings", p, 400)
+	}
+	delete(p, "monitor_history_days")
+	c.call("PUT", "/api/settings", p, 200)
+	if got := c.call("GET", "/api/settings", nil, 200)["monitor_history_days"]; got != float64(365) {
+		t.Fatal(got)
+	}
+}
+
 func TestDefaultMonitorIntervalPreferences(t *testing.T) {
 	c := newClient(t)
 	c.setup()

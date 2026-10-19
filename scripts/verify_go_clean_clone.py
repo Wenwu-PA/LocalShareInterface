@@ -102,6 +102,7 @@ def main():
             preferences['card_order'] = ['devices','checks','internet','availability']
             assert preferences['monitor_interval'] == 20
             preferences['monitor_interval'] = 120
+            preferences['monitor_history_days'] = 90
             call('/api/settings', preferences, 'PUT')
             def png_chunk(kind,data):
                 return struct.pack('!I',len(data))+kind+data+struct.pack('!I',zlib.crc32(kind+data)&0xffffffff)
@@ -116,6 +117,7 @@ def main():
             assert not call('/api/status')['setup_required']
             assert call('/api/settings')['card_order']==preferences['card_order']
             assert call('/api/settings')['monitor_interval']==120
+            assert call('/api/settings')['monitor_history_days']==90
             assert call('/api/branding')['logo']==saved_logo
             assert (clone / 'runtime/files/clean-start').is_dir()
         finally:
