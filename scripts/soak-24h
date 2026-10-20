@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo=$(dirname -- "$script_dir")
+python=${PYTHON:-"$repo/.venv/bin/python"}
+if [ ! -x "$python" ]; then python=python3; fi
+binary=${1:-"$repo/dist/lanbridge-linux-amd64"}
+exec "$python" "$script_dir/verify_go_soak.py" --binary "$binary" --seconds 86400 --monitors 50 --sample-seconds 60 --file-mib 8 --pause 5

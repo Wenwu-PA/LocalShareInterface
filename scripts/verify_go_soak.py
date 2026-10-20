@@ -3,6 +3,8 @@ from pathlib import Path
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
+import csv
+from soak_memory import memory_verdict
 import hashlib
 import http.client
 import json
@@ -30,7 +32,7 @@ def check_workload_gap(now, previous, limit):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--binary', default=str(ROOT/'dist/lanbridge.exe'))
+    parser.add_argument('--binary', default=str(ROOT/'dist'/('lanbridge.exe' if os.name=='nt' else 'lanbridge-linux-amd64')))
     parser.add_argument('--seconds', type=int, default=120)
     parser.add_argument('--monitors', type=int, default=50)
     parser.add_argument('--file-mib', type=int, default=8)
@@ -38,7 +40,9 @@ def main():
     parser.add_argument('--max-rss-mib', type=int, default=0)
     parser.add_argument('--login-seconds', type=int, default=3600)
     parser.add_argument('--max-gap-seconds', type=int, default=120)
+    parser.add_argument('--sample-seconds', type=int, default=10)
     args = parser.parse_args()
+    if not 1 <= args.sample_seconds <= 60: parser.error('sample-seconds 1..60')
     if not 1 <= args.login_seconds <= 3600 or not 60 <= args.max_gap_seconds <= 600:
         parser.error('login-seconds 1..3600; max-gap-seconds 60..600')
     if not 10 <= args.seconds <= 7*86400 or not 1 <= args.monitors <= 1000 or not 1 <= args.file_mib <= 256 or not 0 <= args.pause <= 60 or not 0 <= args.max_rss_mib <= 65536:
@@ -50,7 +54,7 @@ def main():
     output.mkdir(parents=True)
     result = {'result':'RUNNING','requested_seconds':args.seconds,'monitors':args.monitors,
               'file_bytes':args.file_mib*1024**2,'max_rss_mib':args.max_rss_mib,'report':str(output),'full_day':False,
-              'login_seconds':args.login_seconds,'max_gap_seconds':args.max_gap_seconds,'relogins':0}
+              'login_seconds':args.login_seconds,'max_gap_seconds':args.max_gap_seconds,'relogins':0,'sample_seconds':args.sample_seconds}
     digest=hashlib.sha256()
     with binary.open('rb') as binary_file:
         for block in iter(lambda:binary_file.read(1024**2),b''):digest.update(block)
@@ -100,7 +104,9 @@ def main():
                 value=json.loads(raw)
                 if isinstance(value,dict) and 'csrf' in value:csrf=value['csrf']
                 return value
-            with (root/'server.log').open('w',encoding='utf-8') as log, (output/'samples.jsonl').open('w',encoding='utf-8') as samples:
+            with (root/'server.log').open('w',encoding='utf-8') as log, (output/'samples.jsonl').open('w',encoding='utf-8') as samples, (output/'samples.csv').open('w',newline='',encoding='utf-8') as csv_file:
+                csv_writer=csv.DictWriter(csv_file,fieldnames=['seconds','cycles','rss','private','cpu_percent_one_core','heap_bytes','goroutines','database_bytes','wal_bytes'])
+                csv_writer.writeheader();csv_file.flush()
                 process=subprocess.Popen([str(binary),'-config',str(config)],stdout=log,stderr=log,env=env,
                                          creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
                 result['server_pid']=process.pid
@@ -121,20 +127,24 @@ def main():
                             'group':'LAN','interval':20,'timeout':5,'retries':2,'expected_status':204,'method':'GET'})
                     observed=psutil.Process(process.pid);initial_cpu=observed.cpu_times()
                     started=time.monotonic();last_sample=last_login=last_cycle=started;cycles=0;peak_rss=peak_private=0;first_rss=None
+                    last_cpu=initial_cpu;last_cpu_time=started
                     def measure(force=False):
-                        nonlocal peak_rss,peak_private,last_sample,first_rss
+                        nonlocal peak_rss,peak_private,last_sample,first_rss,last_cpu,last_cpu_time
                         memory=observed.memory_info()
                         peak_rss=max(peak_rss,memory.rss);peak_private=max(peak_private,getattr(memory,'private',memory.vms))
                         if first_rss is None:first_rss=memory.rss
                         if args.max_rss_mib and memory.rss>args.max_rss_mib*1024**2:
                             raise RuntimeError(f'Working Set {memory.rss} exceeds {args.max_rss_mib} MiB budget')
                         now=time.monotonic()
-                        if force or now-last_sample>=10:
+                        if force or now-last_sample>=args.sample_seconds:
                             resources=call('/api/resources')
+                            cpu=observed.cpu_times()
+                            cpu_percent=100*(cpu.user+cpu.system-last_cpu.user-last_cpu.system)/max(now-last_cpu_time,.001)
+                            last_cpu=cpu;last_cpu_time=now
                             sample={'seconds':round(now-started,2),'cycles':cycles,'rss':memory.rss,
-                                    'private':getattr(memory,'private',memory.vms),
+                                    'private':getattr(memory,'private',memory.vms),'cpu_percent_one_core':round(cpu_percent,3),
                                     **{key:resources[key] for key in ('heap_bytes','goroutines','database_bytes','wal_bytes')}}
-                            samples.write(json.dumps(sample)+'\n');samples.flush();last_sample=now
+                            samples.write(json.dumps(sample)+'\n');samples.flush();csv_writer.writerow(sample);csv_file.flush();last_sample=now
                             print(json.dumps(sample),flush=True)
                     measure(True)
                     while True:
@@ -190,8 +200,15 @@ def main():
         raise
     finally:
         target.shutdown();target.server_close()
+        sample_path=output/'samples.jsonl'
+        recorded=[json.loads(line) for line in sample_path.read_text(encoding='utf-8').splitlines()] if sample_path.exists() else []
+        result['memory']=memory_verdict(recorded,result.get('result')=='PASS' and result.get('full_day',False))
+        if result['memory']['verdict']=='GROWTH': result.update(result='FAIL',error='Memory growth exceeds 20%')
+        if result.get('full_day') and result['memory']['verdict']=='INCOMPLETE': result.update(result='FAIL',error='Daily memory assessment incomplete')
         (output/'result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
         print(json.dumps(result),flush=True)
+        print(result['memory']['message'],flush=True)
+    if result['result']=='FAIL': raise SystemExit(2)
 
 
 if __name__=='__main__':main()
