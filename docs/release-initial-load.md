@@ -26,10 +26,10 @@
 | `/assets/inter-cyrillic-600-normal-CWCymEST.woff2` | 7995 | да |
 | `/assets/inter-latin-400-normal-C38fXH4l.woff2` | 23669 | да |
 | `/assets/inter-latin-600-normal-LgqL8muc.woff2` | 24445 | да |
-| `devices-B137unNC.js` | 4089 | нет |
-| `files-BRF6EYQ_.js` | 14034 | нет |
+| `devices-B137unNC.js` | 4087 | нет |
+| `files-BRF6EYQ_.js` | 14033 | нет |
 | `hash-worker-CqOUGBao.js` | 2799 | нет |
-| `pdf-preview-BhSmu5Gq.js` | 129013 | нет |
+| `pdf-preview-BhSmu5Gq.js` | 129014 | нет |
 | `pdf.worker.min-CjEcRF4W.mjs` | 375511 | нет |
 
 Экраны файлов и устройств используют динамический импорт; PDF был ленивым ранее.
