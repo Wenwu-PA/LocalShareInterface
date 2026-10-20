@@ -15,8 +15,15 @@ import '@fontsource/inter/cyrillic-700.css';
 import './style.css';
 import {MonitorOverview, IncidentList} from './monitors.js';
 import {Notifications} from './notifications.js';
-import {NetworkDevices} from './devices.js';
-import {FileBrowser} from './files.js';
+const LazyNetworkDevices = lazy(() => import('./devices.js').then(module => ({default:module.NetworkDevices})));
+function NetworkDevices(props) {
+ return h(Suspense,{fallback:h('div',{class:'skeleton',role:'status','aria-label':'Загрузка устройств'})},h(LazyNetworkDevices,props));
+}
+import {lazy, Suspense} from 'preact/compat';
+const LazyFileBrowser = lazy(() => import('./files.js').then(module => ({default:module.FileBrowser})));
+function FileBrowser(props) {
+ return h(Suspense,{fallback:h('div',{class:'skeleton',role:'status','aria-label':'Загрузка файлов'})},h(LazyFileBrowser,props));
+}
 import {GuestShare} from './shares.js';
 import {ExternalAccess} from './external.js';
 import {Resources} from './resources.js';
