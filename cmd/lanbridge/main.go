@@ -43,7 +43,7 @@ func run(parent context.Context, ready func()) (resultErr error) {
 	version := flag.Bool("version", false, "Версия")
 	flag.Parse()
 	if *version {
-		fmt.Println("0.2.0-dev.1")
+		fmt.Println("0.1.0-rc1")
 		return nil
 	}
 	if env := os.Getenv("LANBRIDGE_GO_CONFIG"); env != "" && *path == "config.go.yaml" {
