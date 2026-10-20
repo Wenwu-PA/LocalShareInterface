@@ -26,7 +26,7 @@
 | 3 | RAM ≤60 МБ, CPU <1%, бинарник ≤25 МБ, фронтенд ≤150 КБ gzip | ✅ | `verify_go_monitors.py`: 50 проверок / 20 с, окно 45 с, Working Set 34 742 272 байта, Private Bytes 62 492 672 байта, CPU 0,104% одного ядра. Бинарник 17 050 112 байт. `verify_go_ui.py`: начальные ресурсы 64 821 байт gzip, все ресурсы с PDF 572 110 байт gzip, без шрифтов. Первая загрузка со шрифтами измерена `scripts/verify_go_initial_load.py`: до 160909, после 147764 байт gzip; динамический импорт файлов/устройств. [Таблица чанков](release-initial-load.md). Новый бинарник 17056256 байт. RAM трактуется как Working Set/RSS; Private Bytes отдельно, не резидентная память. |
 | 4 | Дерево с пустыми каталогами, ZIP, докачка 5+ ГБ, отсутствие роста памяти | ❌ | Ранее `verify_go_files.py`, `verify_go_large_file.py --gib 20`, `verify_go_large_file.py --gib 5 --parallel 3` прошли; докачка и SHA-256 подтверждены. Для полного пункта нужно сопоставить проверки структуры и пустых каталогов с утверждениями теста; отсутствие долговременного роста памяти не подтверждено. Не повторять крупные передачи без изменения файлового кода. |
 | 5 | Инцидент, уведомление, доставка очереди после восстановления | ✅ | `.venv\Scripts\python.exe scripts/verify_go_monitors.py` и `scripts/verify_go_notifications.py` — PASS: up/down/recovery, открытие/закрытие инцидента, локальный Webhook, отказ доставки и повтор после восстановления/перезапуска. Это имитация недоступного получателя, не физическое отключение WAN и не проверка реального Telegram/SMTP. |
-| 6 | Traversal, symlink, ACL, ссылки, вход, внешний доступ выключен | ❌ | Полный `go test ./...`, `verify_go_shares.py`, `verify_go_external.py` прошли. Ссылки/пароль/лимит/отзыв и отключение внешнего доступа после запуска подтверждены. Для подписи всего пункта ещё нужна явная привязка существующих тестов traversal, symlink и ACL к этому чек-листу; новых прогонов без изменения кода не требуется. |
+| 6 | Traversal, symlink, ACL, ссылки, вход, внешний доступ выключен | ✅ | `go test ./...` из пункта 1 — PASS. Сопоставление тестов ниже. Дополнительно `go test ./internal/server -run TestReleaseEncodedTraversalAndFolderACL -v -count=1` и `go test ./internal/files -run ^TestRootRejectsEscapingSymlink$ -v -count=1` — PASS, симлинк не пропущен. |
 | 7 | Graceful shutdown и восстановление БД | ✅ | `.venv\Scripts\python.exe scripts/verify_go_shutdown.py` — PASS: настоящий CTRL_BREAK_EVENT при активном PATCH и отдельной записывающей транзакции SQLite, ожидание запроса, код 0, `integrity_check=ok`, сохранённая запись, отсутствие публикации незавершённого файла, перезапуск и SHA-256 2 МиБ. Отчёт `.verification/go-graceful-shutdown.json`. Восстановление из копии ранее PASS в `verify_go_recovery.py`. Скрипт использует SIGTERM на Linux; Linux-ветка требует ручного запуска. |
 | 8 | README: команды на чистой установке, реальные скриншоты, актуальное описание | ❌ | README описывает Go-приложение; скриншоты получены Playwright. `scripts/check_docs.py` — PASS для 23 документов. Чистый клон Windows пройден; чистая ОС и команды Linux/Docker не проверены. Нужна готовая ручная инструкция, чтобы перевести соответствующую часть в 🕐. |
 | 9 | Windows/Linux soak-24h, 50 проверок, минутный CSV RAM/CPU/goroutines/DB, правило утечки | ❌ | Есть `scripts/verify_go_soak.py` с JSONL и `scripts/summarize_go_soak.py`. Требуемые оболочки `scripts/soak-24h`, минутный CSV и формализованный итог ещё не подготовлены. Текущий скрипт не объявляет отсутствие утечки. Предыдущий прогон FAIL из-за паузы 21 986,18 с; подробности ниже. |
@@ -73,3 +73,17 @@
 Сессия остановлена до начала этих пунктов: недельный остаток 1%, часовой 84%.
 Порог остановки 25% не отменён. Код не изменён; сборка и тесты не запускались.
 
+
+## Привязка проверок безопасности
+
+| Риск | Существующий тест / доказательство |
+|---|---|
+| Traversal и служебные пути | `internal/files/files_test.go`: `TestPathValidation`; `internal/server/release_security_test.go`: `TestReleaseEncodedTraversalAndFolderACL` |
+| Симлинк за корень | `internal/files/files_test.go`: `TestRootRejectsEscapingSymlink`, фактически PASS на Windows, не SKIP |
+| Наследование ACL, регистр, пагинация | `TestIndexAndInheritedACL`, `TestCaseAliasesCannotBypassACL`, `TestACLFilteringBeforePagination` |
+| Запрет API папки | Новый `TestReleaseEncodedTraversalAndFolderACL`: read/upload/ZIP/share. ZIP-билет можно создать, но скачать закрытую папку по нему нельзя |
+| Временные ссылки | `TestGuestPasswordQuotaAndReplay`, `TestGuestFolderRevocationExpiryAndACL`, `TestGuestAtomicQuotaAndPasswordThrottle` |
+| Вход, сессия, CSRF | `TestSetupLoginLogoutAndPersistence`, `TestCSRFAndOrigin`, `TestRateLimit`, `TestExpiredSession`, `TestSessionStoresOnlyHashes` |
+| Внешний шлюз | `TestExternalGatewayIsolation`; ранее PASS `verify_go_external.py`: выключен после перезапуска, административные маршруты закрыты |
+
+Изменён только тест; производственный код безопасности не менялся.
