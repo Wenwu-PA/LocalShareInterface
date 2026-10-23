@@ -4,10 +4,11 @@
 
 Прогон стартовал 21 октября в 20:29:52 МСК, длился 86400,01 с.
 Ревизия `4c643f86270d28a67a600581cd3109d26541e51d`, бинарник v0.1.0-rc1.
-Исходные файлы сохранены побайтно, без редактирования:
+Исходные файлы сохранены побайтно, без редактирования (server-tail.log
+сохранён с расширением .txt для включения диагностического артефакта в Git):
 [result.json](reports/soak-72b7f91cf417/result.json),
 [samples.csv](reports/soak-72b7f91cf417/samples.csv),
-[server-tail.log](reports/soak-72b7f91cf417/server-tail.log).
+[server-tail.txt](reports/soak-72b7f91cf417/server-tail.txt).
 
 PASS, full_day=true, 17002 цикла, 142623113216 байт в каждом направлении,
 server_errors=0, 23 повторных входа. Средний CPU одного ядра 0,694%.
@@ -114,4 +115,4 @@ go test ./internal/monitor -run 'TestCompactionStagesAndRawBoundary|TestCompacti
 
 - `result.json`: `d0914e2e8c7972dedfe20f944e041f2e7f8feef0b9b2e66366ca3d11d7bb70e1`
 - `samples.csv`: `c108feb1330d1641ff91a29948ce8c5e14630dd923785fa6b7298c5ccaccf88c`
-- `server-tail.log`: `0ede04f062363dbfdcce20a591e3eeb871449a8701bcea8995e579b2ee78c99e`
+- `server-tail.txt`: `0ede04f062363dbfdcce20a591e3eeb871449a8701bcea8995e579b2ee78c99e`
