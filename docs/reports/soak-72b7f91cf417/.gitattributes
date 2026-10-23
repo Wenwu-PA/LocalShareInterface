@@ -1,0 +1,3 @@
+result.json -text
+samples.csv -text
+server-tail.log -text
