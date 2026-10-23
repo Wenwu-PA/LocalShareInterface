@@ -1,0 +1,16 @@
+{
+  ".gitattributes": "cce08f95430950cb733402f541f57e77854ee85488b6d0a1d25f76d43a56cae3",
+  "comparison.json": "d4979d521eafa39acbf2db62f091e87b70845fec574e0f44859a8407ad9395b9",
+  "48h\\result.json": "e67163ad07d378a217e75e74985cc080d2059fe95d25e22523a44024a20a29ee",
+  "48h\\samples.csv": "8ec120e1dc8bff8903ea7eff3ef6e61eab890f6cb0a18b023079abcc93620cf0",
+  "48h\\server-tail.txt": "b8025bc0b0f50e2a1d2b26be033c666880d874f6f0afa7b14b1387677e7e6ca1",
+  "empty\\result.json": "f866879cd62076535b4773794b7e6b08aaaf6b08cd535cdaa31976b420472a31",
+  "empty\\samples.csv": "568cd18fa9046a4cba27120b2b30fd845665736dfd11a504b5806df227e28a42",
+  "empty\\server-tail.txt": "e2688c891e04378cde66e18c4f98f62bb31d95ae6a91344d7aaf19e5ac236b79",
+  "preliminary-48h\\result.json": "435189bef0bf2272ed36e3b949f02bb6668cf31cef63b1b63dd19785ab3f4ce8",
+  "preliminary-48h\\samples.csv": "48bca9d0f1afc300f08cd1920654a5595748264bd5cd3e57589824da37561444",
+  "preliminary-48h\\server-tail.txt": "cd4841384946836d036c95f1f75415e38735d953855eee8f1d5b1fd69370b4f0",
+  "preliminary-empty\\result.json": "93e3494824421d8b93025797c77af0e3dc79c0667668b8b1a0ce6428f8334537",
+  "preliminary-empty\\samples.csv": "5f9d96c2fcf9c023709ce56103564351962050f568bd9a81e04fd59922b44f73",
+  "preliminary-empty\\server-tail.txt": "813631a311d74cfb2bdd4a5dc6bce8fdb1aa1b57109686be1a3b4e170992e1a8"
+}

@@ -1,0 +1,1 @@
+{"time":"2026-10-23T08:30:03.6026554+03:00","level":"INFO","msg":"starting HTTPS server","address":"https://127.0.0.1:50097","database":"C:\\Users\\Wenwu\\AppData\\Local\\Temp\\lanbridge-soak-e73omx51\\runtime\\lanbridge-go.sqlite3"}

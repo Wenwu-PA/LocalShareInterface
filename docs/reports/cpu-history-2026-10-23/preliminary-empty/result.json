@@ -1,0 +1,71 @@
+{
+  "result": "PASS",
+  "requested_seconds": 600,
+  "monitors": 50,
+  "file_bytes": 8388608,
+  "max_rss_mib": 0,
+  "report": "C:\\Users\\Wenwu\\Desktop\\LocalShareInterface\\.verification\\soak-3b86913a20e5",
+  "full_day": false,
+  "login_seconds": 3600,
+  "max_gap_seconds": 120,
+  "relogins": 0,
+  "sample_seconds": 60,
+  "binary_sha256": "f85289842096e217a8c351f61331824208e029934ba8850e284eb9c13f3d548c",
+  "revision": "319f0cb5119a29db287caa71f8b7bbefc5e397bb",
+  "server_pid": 68248,
+  "seed": {
+    "hours": 0,
+    "monitors": 50,
+    "database_bytes": 258048,
+    "counts_before_seed": {
+      "samples": 0,
+      "aggregates": 0
+    },
+    "counts_after_seed": {
+      "samples": 0,
+      "aggregates": 0
+    },
+    "query_plans": {
+      "delete_old_aggregates": [
+        [
+          3,
+          0,
+          216,
+          "SCAN aggregates"
+        ]
+      ],
+      "delete_old_samples": [
+        [
+          4,
+          0,
+          191,
+          "SEARCH samples USING INDEX samples_time (at<?)"
+        ]
+      ],
+      "compact_candidates": [
+        [
+          3,
+          0,
+          51,
+          "SEARCH aggregates USING INDEX aggregate_time (resolution=? AND bucket<?)"
+        ]
+      ]
+    }
+  },
+  "observed_seconds": 600.0,
+  "cycles": 118,
+  "bytes_each_direction": 989855744,
+  "seconds": 600.0,
+  "working_set_peak": 59928576,
+  "private_peak": 88125440,
+  "rss_start": 59584512,
+  "rss_end": 39763968,
+  "cpu_percent_one_core": 0.909,
+  "cpu_seconds": 5.453125,
+  "cpu_ms_per_transfer_cycle": 46.21292372881356,
+  "server_errors": 0,
+  "memory": {
+    "verdict": "INCOMPLETE",
+    "message": "\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0434\u0430\u043d\u043d\u044b\u0445: \u0441\u0443\u0442\u043e\u0447\u043d\u044b\u0439 \u043f\u0440\u043e\u0433\u043e\u043d \u043d\u0435 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043d"
+  }
+}

@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
 import csv
 from soak_memory import memory_verdict
+from seed_monitor_history import seed_history
 import hashlib
 import http.client
 import json
@@ -41,6 +42,8 @@ def main():
     parser.add_argument('--login-seconds', type=int, default=3600)
     parser.add_argument('--max-gap-seconds', type=int, default=120)
     parser.add_argument('--sample-seconds', type=int, default=10)
+    parser.add_argument('--history-hours', type=int, choices=(0,24,48), default=0)
+    parser.add_argument('--benchmark-start-at', type=float, default=0)
     args = parser.parse_args()
     if not 1 <= args.sample_seconds <= 60: parser.error('sample-seconds 1..60')
     if not 1 <= args.login_seconds <= 3600 or not 60 <= args.max_gap_seconds <= 600:
@@ -125,6 +128,29 @@ def main():
                     for i in range(args.monitors):
                         call('/api/monitors','POST',{'name':f'Soak {i}','kind':'http','target':f'http://127.0.0.1:{target.server_port}',
                             'group':'LAN','interval':20,'timeout':5,'retries':2,'expected_status':204,'method':'GET'})
+                    if args.history_hours or args.benchmark_start_at:
+                        # Seed offline: a bulk external writer otherwise races monitor batches.
+                        connection.close()
+                        process.terminate();process.wait(timeout=15)
+                        result['seed']=seed_history(root,args.history_hours)
+                        process=subprocess.Popen([str(binary),'-config',str(config)],stdout=log,stderr=log,env=env,
+                                                 creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+                        result['server_pid']=process.pid
+                        for _ in range(100):
+                            reconnect()
+                            try:call('/healthz');break
+                            except OSError:
+                                connection.close()
+                                if process.poll() is not None:raise RuntimeError('Server exited after seeding')
+                                time.sleep(.1)
+                        else:raise RuntimeError('Server restart timeout')
+                        call('/api/login','POST',credentials)
+                        print(json.dumps({'seed':result['seed'],'report':str(output)}),flush=True)
+                    if args.benchmark_start_at:
+                        remaining=args.benchmark_start_at-time.time()
+                        if remaining<0: raise RuntimeError('Benchmark start deadline missed')
+                        if remaining>180: raise RuntimeError('Benchmark start must be within 180 seconds')
+                        time.sleep(remaining)
                     observed=psutil.Process(process.pid);initial_cpu=observed.cpu_times()
                     started=time.monotonic();last_sample=last_login=last_cycle=started;cycles=0;peak_rss=peak_private=0;first_rss=None
                     last_cpu=initial_cpu;last_cpu_time=started
@@ -182,7 +208,9 @@ def main():
                     result.update(result='PASS',seconds=round(elapsed,2),full_day=elapsed>=86400,cycles=cycles,
                                   bytes_each_direction=cycles*args.file_mib*1024**2,working_set_peak=peak_rss,
                                   private_peak=peak_private,rss_start=first_rss,rss_end=observed.memory_info().rss,
-                                  cpu_percent_one_core=round(100*(cpu.user+cpu.system-initial_cpu.user-initial_cpu.system)/elapsed,3))
+                                  cpu_percent_one_core=round(100*(cpu.user+cpu.system-initial_cpu.user-initial_cpu.system)/elapsed,3),
+                                  cpu_seconds=cpu.user+cpu.system-initial_cpu.user-initial_cpu.system,
+                                  cpu_ms_per_transfer_cycle=1000*(cpu.user+cpu.system-initial_cpu.user-initial_cpu.system)/max(cycles,1))
                 finally:
                     if connection:connection.close()
                     if process and process.poll() is None:process.terminate();process.wait(timeout=15)
